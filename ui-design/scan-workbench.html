@@ -1,0 +1,1196 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MemScanner — 扫描工作台</title>
+<style>
+:root {
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-warm: #f7f7f7;
+
+  --fg: #222222;
+  --fg-2: #3f3f3f;
+  --muted: #6a6a6a;
+  --meta: #929292;
+
+  --border: #dddddd;
+  --border-soft: #ebebeb;
+
+  --accent: #ff385c;
+  --accent-on: #ffffff;
+  --accent-hover: #e31c5f;
+  --accent-active: #e00b41;
+
+  --success: #008a05;
+  --warn: #c47700;
+  --danger: #c13515;
+
+  --font-display:
+    "Airbnb Cereal VF", "Airbnb Cereal App", Circular,
+    -apple-system, system-ui, "Helvetica Neue", Roboto, sans-serif;
+  --font-body:
+    "Airbnb Cereal VF", "Airbnb Cereal App", Circular,
+    -apple-system, system-ui, "Helvetica Neue", Roboto, sans-serif;
+  --font-mono:
+    ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Monaco,
+    Consolas, monospace;
+
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-base: 16px;
+  --text-lg: 20px;
+  --text-xl: 22px;
+  --text-2xl: 28px;
+  --text-3xl: 44px;
+  --text-4xl: 56px;
+
+  --leading-body: 1.43;
+  --leading-tight: 1.2;
+  --tracking-display: -0.02em;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+
+  --section-y-desktop: 64px;
+  --section-y-tablet: 48px;
+  --section-y-phone: 32px;
+
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-pill: 9999px;
+
+  --elev-flat: none;
+  --elev-ring: 0 0 0 1px var(--border);
+  --elev-raised:
+    rgba(0, 0, 0, 0.02) 0 0 0 1px,
+    rgba(0, 0, 0, 0.04) 0 2px 6px 0,
+    rgba(0, 0, 0, 0.1) 0 4px 8px 0;
+
+  --focus-ring: 0 0 0 2px var(--fg);
+
+  --motion-fast: 150ms;
+  --motion-base: 200ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+
+  --container-max: 1280px;
+  --container-gutter-desktop: 40px;
+  --container-gutter-tablet: 24px;
+  --container-gutter-phone: 16px;
+}
+
+/* ── derived surfaces: every value mixed from the token block above ── */
+:root {
+  --hover: color-mix(in oklab, var(--fg) 5%, var(--surface));
+  --pressed: color-mix(in oklab, var(--fg) 9%, var(--surface));
+  --sel: color-mix(in oklab, var(--fg) 8%, var(--surface));
+  --grid-line: var(--border-soft);
+  --success-tint: color-mix(in oklab, var(--success) 10%, var(--surface));
+  --warn-tint: color-mix(in oklab, var(--warn) 12%, var(--surface));
+  --danger-tint: color-mix(in oklab, var(--danger) 8%, var(--surface));
+  --scrim: color-mix(in oklab, var(--fg) 42%, transparent);
+  --row-h: 27px;
+  --tb-h: 56px;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: var(--font-body); font-size: 13px; font-weight: 500;
+  line-height: var(--leading-body);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+button, input, select { font: inherit; color: inherit; }
+::selection { background: var(--sel); }
+
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+.eyebrow {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.09em; color: var(--muted);
+}
+.icon { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none;
+  stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+
+/* ── shell ─────────────────────────────────────────────────────── */
+.app { height: 100vh; display: grid; grid-template-rows: var(--tb-h) 1fr; min-width: 960px; }
+.body-grid { display: grid; grid-template-columns: 300px 1fr; min-height: 0; }
+.stack { display: grid; grid-template-rows: 1fr 236px; min-height: 0; min-width: 0; }
+
+/* ── toolbar ───────────────────────────────────────────────────── */
+.toolbar {
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: 0 var(--space-4); border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.brand { display: flex; align-items: center; gap: var(--space-2); padding-right: var(--space-3);
+  border-right: 1px solid var(--border-soft); height: 28px; }
+.brand-mark { width: 22px; height: 22px; stroke: var(--fg); fill: none; stroke-width: 1.7; }
+.brand-name { font-family: var(--font-display); font-size: var(--text-sm); font-weight: 700; letter-spacing: -0.01em; }
+.brand-ver { font-size: 10px; color: var(--meta); font-weight: 600; letter-spacing: 0.04em; }
+
+.proc-chip {
+  display: flex; align-items: center; gap: var(--space-2);
+  height: 34px; padding: 0 12px; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); background: var(--surface-warm); min-width: 244px;
+}
+.proc-chip[data-state="empty"] { border-style: dashed; color: var(--muted); }
+.proc-chip .dot { width: 7px; height: 7px; border-radius: var(--radius-pill); background: var(--meta); flex: none; }
+.proc-chip[data-state="ready"] .dot { background: var(--success); }
+.proc-name { font-weight: 600; font-size: var(--text-xs); }
+.proc-meta { font-size: 11px; color: var(--muted); }
+.spacer { flex: 1 1 auto; }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 34px; padding: 0 12px; font-size: var(--text-xs); font-weight: 600;
+  background: var(--surface); color: var(--fg);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  cursor: pointer; transition: background var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard), transform var(--motion-fast) var(--ease-standard);
+  white-space: nowrap;
+}
+.btn:hover { background: var(--hover); border-color: color-mix(in oklab, var(--fg) 26%, var(--border)); }
+.btn:active { background: var(--pressed); transform: scale(0.97); }
+.btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.btn[disabled] { background: var(--surface-warm); color: var(--meta); border-color: var(--border-soft);
+  cursor: not-allowed; transform: none; }
+.btn-ghost { border-color: transparent; background: transparent; }
+.btn-ghost:hover { background: var(--hover); border-color: transparent; }
+.btn-icon { width: 34px; padding: 0; }
+.btn-primary {
+  background: var(--accent); color: var(--accent-on); border-color: var(--accent);
+  height: 40px; font-size: var(--text-sm); font-weight: 600; padding: 0 18px;
+}
+.btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: var(--accent-on); }
+.btn-primary:active { background: var(--accent-active); border-color: var(--accent-active); }
+.btn[aria-pressed="true"] { background: var(--fg); color: var(--surface); border-color: var(--fg); }
+.btn[aria-pressed="true"]:hover { background: var(--fg-2); border-color: var(--fg-2); color: var(--surface); }
+
+kbd {
+  font-family: var(--font-mono); font-size: 10px; font-weight: 600; line-height: 1;
+  padding: 3px 5px; border: 1px solid var(--border); border-bottom-width: 2px;
+  border-radius: 5px; background: var(--surface); color: var(--muted);
+}
+
+/* ── scan panel (left rail) ────────────────────────────────────── */
+.rail { border-right: 1px solid var(--border); background: var(--surface);
+  display: flex; flex-direction: column; min-height: 0; }
+.rail-scroll { overflow-y: auto; padding: var(--space-4); display: grid; gap: var(--space-4); }
+.field { display: grid; gap: 6px; }
+.field > label { font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing: 0.02em; }
+.control {
+  height: 34px; width: 100%; padding: 0 10px; background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  font-size: var(--text-xs); font-weight: 500;
+}
+select.control { appearance: none; padding-right: 28px; cursor: pointer;
+  background-image: linear-gradient(45deg, transparent 50%, var(--fg-2) 50%),
+    linear-gradient(135deg, var(--fg-2) 50%, transparent 50%);
+  background-position: calc(100% - 15px) 15px, calc(100% - 10px) 15px;
+  background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; }
+.control:hover { border-color: color-mix(in oklab, var(--fg) 26%, var(--border)); }
+.control:focus-visible { outline: none; border-color: var(--fg); box-shadow: var(--focus-ring); }
+.control[disabled] { background: var(--surface-warm); color: var(--meta); cursor: not-allowed; }
+.control.mono { letter-spacing: 0.02em; }
+.two-up { display: grid; grid-template-columns: 1fr 14px 1fr; align-items: center; gap: 6px; }
+.two-up .dash { text-align: center; color: var(--meta); font-size: 11px; }
+.hint { font-size: 11px; color: var(--muted); line-height: 1.45; }
+.hint.mono { font-size: 11px; }
+
+.opt-toggle {
+  display: flex; align-items: center; gap: 6px; width: 100%; height: 30px;
+  background: none; border: 0; padding: 0; cursor: pointer;
+  font-size: 11px; font-weight: 700; color: var(--fg); letter-spacing: 0.02em;
+}
+.opt-toggle:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: 5px; }
+.opt-toggle .chev { transition: transform var(--motion-base) var(--ease-standard); }
+.opt-toggle[aria-expanded="true"] .chev { transform: rotate(90deg); }
+.opt-body { display: grid; gap: 2px; padding: 6px 0 2px; }
+.opt-body[hidden] { display: none; }
+.switch-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2);
+  padding: 6px 0; font-size: var(--text-xs); }
+.switch { position: relative; width: 34px; height: 20px; flex: none; border: 0; padding: 0;
+  border-radius: var(--radius-pill); background: color-mix(in oklab, var(--fg) 18%, var(--surface));
+  cursor: pointer; transition: background var(--motion-fast) var(--ease-standard); }
+.switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px;
+  border-radius: var(--radius-pill); background: var(--surface);
+  box-shadow: rgba(0,0,0,.18) 0 1px 3px; transition: transform var(--motion-fast) var(--ease-standard); }
+.switch[aria-checked="true"] { background: var(--fg); }
+.switch[aria-checked="true"]::after { transform: translateX(14px); }
+.switch:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+.rail-actions { display: grid; gap: var(--space-2); padding: var(--space-4);
+  border-top: 1px solid var(--border); background: var(--surface); }
+.rail-actions .pair { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); }
+.rail-actions .pair .btn { height: 36px; }
+.progress-wrap { display: grid; gap: 5px; }
+.progress-wrap[hidden] { display: none; }
+.progress-meta { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
+.track { height: 4px; border-radius: var(--radius-pill); background: color-mix(in oklab, var(--fg) 10%, var(--surface)); overflow: hidden; }
+.bar { height: 100%; width: 0%; background: var(--fg); border-radius: var(--radius-pill);
+  transition: width 120ms linear; }
+.shortcut-strip { display: flex; flex-wrap: wrap; gap: 6px 10px; font-size: 11px; color: var(--muted);
+  border-top: 1px solid var(--border-soft); padding-top: var(--space-3); }
+.shortcut-strip span { display: inline-flex; align-items: center; gap: 5px; }
+
+/* ── section headers ──────────────────────────────────────────── */
+.sec { display: flex; flex-direction: column; min-height: 0; min-width: 0; background: var(--surface); }
+.sec + .sec { border-top: 1px solid var(--border); }
+.sec-head { display: flex; align-items: center; gap: var(--space-3); height: 38px;
+  padding: 0 var(--space-4); border-bottom: 1px solid var(--border); background: var(--surface-warm); }
+.sec-head h2 { margin: 0; font-family: var(--font-display); font-size: var(--text-xs); font-weight: 700; letter-spacing: 0.01em; }
+.count { font-size: 11px; color: var(--muted); }
+.count b { color: var(--accent); font-weight: 700; font-family: var(--font-mono); }
+
+/* ── tables ───────────────────────────────────────────────────── */
+.tbl-wrap { flex: 1 1 auto; overflow: auto; min-height: 0; }
+table { width: 100%; border-collapse: separate; border-spacing: 0; }
+thead th {
+  position: sticky; top: 0; z-index: 2; text-align: left;
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--muted); padding: 7px var(--space-3); white-space: nowrap;
+}
+tbody td { padding: 0 var(--space-3); height: var(--row-h); border-bottom: 1px solid var(--grid-line);
+  font-size: var(--text-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+tbody tr { cursor: default; }
+tbody tr:hover td { background: var(--hover); }
+tbody tr[aria-selected="true"] td { background: var(--sel); }
+tbody tr[aria-selected="true"] td:first-child { box-shadow: inset 2px 0 0 var(--fg); }
+td.num { text-align: right; font-variant-numeric: tabular-nums; }
+td.dim { color: var(--muted); }
+.type-tag { font-size: 10px; font-weight: 700; letter-spacing: 0.04em; color: var(--fg-2);
+  background: var(--surface-warm); border: 1px solid var(--border-soft);
+  border-radius: 5px; padding: 2px 6px; }
+.changed { color: var(--warn); font-weight: 700; }
+.empty {
+  flex: 1 1 auto; display: grid; place-items: center; padding: var(--space-8); text-align: center;
+}
+.empty-inner { max-width: 380px; display: grid; gap: var(--space-3); justify-items: center; }
+.empty svg { width: 40px; height: 40px; stroke: var(--meta); fill: none; stroke-width: 1.4; }
+.empty h3 { margin: 0; font-family: var(--font-display); font-size: var(--text-base); font-weight: 700; }
+.empty p { margin: 0; font-size: var(--text-xs); color: var(--muted); }
+
+.pager { display: flex; align-items: center; gap: var(--space-2); height: 36px;
+  padding: 0 var(--space-4); border-top: 1px solid var(--border); background: var(--surface); }
+.pager .info { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.pager .btn { height: 26px; padding: 0 9px; font-size: 11px; }
+.pager .btn-icon { width: 26px; }
+.page-in { width: 62px; height: 26px; text-align: center; font-size: 11px; }
+
+/* ── address table specifics ──────────────────────────────────── */
+.cb { appearance: none; width: 15px; height: 15px; margin: 0; border: 1px solid var(--border);
+  border-radius: 4px; background: var(--surface); cursor: pointer; position: relative; vertical-align: middle; }
+.cb:hover { border-color: var(--fg); }
+.cb:checked { background: var(--fg); border-color: var(--fg); }
+.cb:checked::after { content: ""; position: absolute; inset: 0;
+  background: no-repeat center/9px 9px url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='white' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'><path d='M2 6.4 4.6 9 10 3'/></svg>"); }
+.cb:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+tr.frozen td:first-child { box-shadow: inset 2px 0 0 var(--success); }
+.freeze-pill { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 700;
+  color: color-mix(in oklab, var(--success) 82%, var(--fg)); background: var(--success-tint);
+  border-radius: var(--radius-pill); padding: 2px 7px; }
+.edit-in { width: 100%; height: 21px; padding: 0 5px; border: 1px solid var(--fg);
+  border-radius: 5px; background: var(--surface); font-size: 11px; }
+.edit-in:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.row-del { width: 22px; height: 22px; display: inline-grid; place-items: center; padding: 0;
+  border: 0; background: none; border-radius: 5px; color: var(--muted); cursor: pointer; }
+tbody tr:hover .row-del { color: var(--fg); }
+.row-del:hover { background: var(--danger-tint); color: var(--danger); }
+.row-del:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.flash { animation: flash var(--motion-base) var(--ease-standard); }
+@keyframes flash { from { background: var(--warn-tint); } to { background: transparent; } }
+
+/* ── hex drawer ───────────────────────────────────────────────── */
+.drawer {
+  position: fixed; top: var(--tb-h); right: 0; bottom: 0; width: 428px; z-index: 40;
+  background: var(--surface); border-left: 1px solid var(--border); box-shadow: var(--elev-raised);
+  display: flex; flex-direction: column;
+  transform: translateX(100%); transition: transform var(--motion-base) var(--ease-standard);
+}
+.drawer.open { transform: none; }
+.drawer-head { display: flex; align-items: center; gap: var(--space-2); padding: 0 var(--space-3);
+  height: 44px; border-bottom: 1px solid var(--border); }
+.drawer-head h2 { margin: 0; font-size: var(--text-xs); font-weight: 700; font-family: var(--font-display); }
+.drawer-bar { display: flex; align-items: center; gap: 6px; padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border-soft); background: var(--surface-warm); }
+.addr-in { flex: 1 1 auto; height: 28px; font-size: 11px; }
+.hex { flex: 1 1 auto; overflow: auto; padding: var(--space-2) var(--space-3) var(--space-4);
+  font-family: var(--font-mono); font-size: 11px; line-height: 1.85; }
+.hex-row { display: grid; grid-template-columns: 104px 1fr 128px; gap: var(--space-3); white-space: pre; }
+.hex-row .off { color: var(--muted); }
+.hex-row .ascii { color: var(--fg-2); }
+.hex b { color: var(--warn); }
+.drawer-foot { display: flex; align-items: center; justify-content: space-between;
+  padding: 0 var(--space-3); height: 34px; border-top: 1px solid var(--border); font-size: 11px; color: var(--muted); }
+.pulse { width: 6px; height: 6px; border-radius: var(--radius-pill); background: var(--success);
+  display: inline-block; margin-right: 6px; animation: pulse 1s var(--ease-standard) infinite; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.25; } }
+
+/* ── modal ────────────────────────────────────────────────────── */
+.scrim { position: fixed; inset: 0; z-index: 60; background: var(--scrim);
+  display: grid; place-items: center; padding: var(--space-6); }
+.scrim[hidden] { display: none; }
+.modal { width: 620px; max-height: 78vh; display: flex; flex-direction: column;
+  background: var(--surface); border-radius: var(--radius-md); box-shadow: var(--elev-raised);
+  overflow: hidden; }
+.modal-head { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border); }
+.modal-head h2 { margin: 0; font-family: var(--font-display); font-size: var(--text-base);
+  font-weight: 700; letter-spacing: -0.01em; }
+.modal-head p { margin: 2px 0 0; font-size: 11px; color: var(--muted); }
+.btn-close { width: 32px; height: 32px; border-radius: var(--radius-pill); border: 1px solid var(--border);
+  background: var(--surface); display: grid; place-items: center; cursor: pointer; color: var(--fg); }
+.btn-close:hover { background: var(--hover); }
+.btn-close:active { transform: scale(0.92); }
+.btn-close:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.search-wrap { position: relative; padding: var(--space-3) var(--space-5);
+  border-bottom: 1px solid var(--border-soft); }
+.search-wrap .icon { position: absolute; left: calc(var(--space-5) + 10px); top: 50%;
+  transform: translateY(-50%); color: var(--muted); }
+.search-in { height: 36px; padding-left: 34px; }
+.modal-body { flex: 1 1 auto; overflow: auto; min-height: 160px; }
+.modal-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3);
+  padding: var(--space-3) var(--space-5); border-top: 1px solid var(--border); background: var(--surface-warm); }
+.modal-foot .actions { display: flex; gap: var(--space-2); align-items: center; }
+.btn-solid-dark { background: var(--fg); color: var(--surface); border-color: var(--fg); height: 36px; padding: 0 16px; }
+.btn-solid-dark:hover { background: var(--fg-2); border-color: var(--fg-2); color: var(--surface); }
+.btn-solid-dark[disabled] { background: var(--surface-warm); color: var(--meta); border-color: var(--border-soft); }
+
+/* ── context menu ─────────────────────────────────────────────── */
+.ctx { position: fixed; z-index: 80; min-width: 214px; padding: 5px;
+  background: var(--surface); border-radius: var(--radius-sm); box-shadow: var(--elev-raised); }
+.ctx[hidden] { display: none; }
+.ctx button { display: flex; align-items: center; gap: var(--space-2); width: 100%; height: 30px;
+  padding: 0 8px; border: 0; background: none; border-radius: 5px; cursor: pointer;
+  font-size: var(--text-xs); text-align: left; }
+.ctx button:hover { background: var(--hover); }
+.ctx button:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.ctx button .icon { color: var(--muted); }
+.ctx button:hover .icon { color: var(--fg); }
+.ctx hr { border: 0; border-top: 1px solid var(--border-soft); margin: 5px 4px; }
+.ctx .danger { color: var(--danger); }
+.ctx .danger .icon { color: var(--danger); }
+.ctx .danger:hover { background: var(--danger-tint); }
+
+/* ── toasts ───────────────────────────────────────────────────── */
+.toasts { position: fixed; right: var(--space-4); bottom: var(--space-4); z-index: 90;
+  display: grid; gap: var(--space-2); width: 316px; }
+.toast { display: flex; gap: 10px; padding: 11px 12px; background: var(--surface);
+  border-radius: var(--radius-sm); box-shadow: var(--elev-raised); align-items: flex-start;
+  animation: slide-in var(--motion-base) var(--ease-standard); }
+@keyframes slide-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.toast.out { opacity: 0; transform: translateY(6px); transition: all var(--motion-base) var(--ease-standard); }
+.toast .icon { margin-top: 1px; }
+.toast .txt { font-size: var(--text-xs); }
+.toast .txt em { display: block; font-style: normal; color: var(--muted); font-size: 11px; margin-top: 2px; }
+.toast[data-kind="success"] .icon { color: var(--success); }
+.toast[data-kind="error"] .icon { color: var(--danger); }
+.toast[data-kind="info"] .icon { color: var(--fg-2); }
+
+/* ── compact / always-on-top mode ─────────────────────────────── */
+.app.compact { --row-h: 22px; --tb-h: 44px; }
+.app.compact .brand-name, .app.compact .brand-ver, .app.compact .shortcut-strip { display: none; }
+.app.compact .rail-scroll, .app.compact .rail-actions { padding: 10px; gap: 10px; }
+.app.compact .sec-head { height: 32px; }
+.app.compact .stack { grid-template-rows: 1fr 188px; }
+.app.compact .btn-lbl { display: none; }
+.app.compact .btn-lbl-keep { display: inline; }
+.aot-badge { display: none; align-items: center; gap: 5px; font-size: 10px; font-weight: 700;
+  letter-spacing: 0.06em; text-transform: uppercase; color: var(--fg-2);
+  background: var(--surface-warm); border: 1px solid var(--border); border-radius: var(--radius-pill); padding: 3px 9px; }
+.app.compact .aot-badge { display: inline-flex; }
+
+@media (max-width: 1120px) { .drawer { width: 380px; } }
+@media (prefers-reduced-motion: reduce) { * { animation-duration: 1ms !important; transition-duration: 1ms !important; } }
+</style>
+</head>
+<body>
+<svg class="sr" aria-hidden="true"><defs>
+<symbol id="i-cpu" viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="1.5"/><rect x="3.5" y="3.5" width="17" height="17" rx="2.5"/><path d="M10 3.5V1.6M14 3.5V1.6M10 22.4v-1.9M14 22.4v-1.9M3.5 10H1.6M3.5 14H1.6M22.4 10h-1.9M22.4 14h-1.9"/></symbol>
+<symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.2"/><circle cx="12" cy="12" r="3.2"/><path d="M12 1.8v3M12 19.2v3M1.8 12h3M19.2 12h3"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.4 15.4 4.6 4.6"/></symbol>
+<symbol id="i-save" viewBox="0 0 24 24"><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h8.7L20 8.8v8.7A2.5 2.5 0 0 1 17.5 20h-11A2.5 2.5 0 0 1 4 17.5z"/><path d="M8 4v5h7"/><rect x="8" y="13" width="8" height="7" rx="1"/></symbol>
+<symbol id="i-open" viewBox="0 0 24 24"><path d="M3.5 7.5A2 2 0 0 1 5.5 5.5h3.2l2 2.4h7.8a2 2 0 0 1 2 2v6.6a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></symbol>
+<symbol id="i-pin" viewBox="0 0 24 24"><path d="M9 3.5h6l-.8 5.2 3.3 3.6H6.5l3.3-3.6z"/><path d="M12 12.3V20.5"/></symbol>
+<symbol id="i-chev" viewBox="0 0 24 24"><path d="m9.5 5.5 7 6.5-7 6.5"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+<symbol id="i-grid" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="2"/><path d="M3.5 9h17M3.5 14.6h17M9 3.5v17M14.6 3.5v17"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="i-link" viewBox="0 0 24 24"><path d="M9.6 14.4 14.4 9.6"/><path d="M12.6 7.4l1.6-1.6a3.4 3.4 0 0 1 4.8 4.8l-1.6 1.6"/><path d="M11.4 16.6l-1.6 1.6a3.4 3.4 0 0 1-4.8-4.8l1.6-1.6"/></symbol>
+<symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 6.5A2.5 2.5 0 0 0 12.5 4H6.5A2.5 2.5 0 0 0 4 6.5v6A2.5 2.5 0 0 0 6.5 15"/></symbol>
+<symbol id="i-trash" viewBox="0 0 24 24"><path d="M4.5 7h15M9.5 7V4.8h5V7M6.5 7l.8 12.2a1.6 1.6 0 0 0 1.6 1.5h6.2a1.6 1.6 0 0 0 1.6-1.5L17.5 7"/></symbol>
+<symbol id="i-undo" viewBox="0 0 24 24"><path d="M4.5 9.5h10a5 5 0 0 1 0 10H8"/><path d="m8.5 5.5-4 4 4 4"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6"/><path d="m8.2 12.2 2.7 2.7 5-5.6"/></symbol>
+<symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6"/><path d="M12 7.8v5M12 16.1v.1"/></symbol>
+<symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6"/><path d="M12 11v5.2M12 7.9v.1"/></symbol>
+<symbol id="i-snow" viewBox="0 0 24 24"><path d="M12 3v18M4.2 7.5l15.6 9M19.8 7.5l-15.6 9"/></symbol>
+<symbol id="i-vm" viewBox="0 0 24 24"><rect x="2.5" y="4.5" width="19" height="12" rx="2"/><path d="M8 20h8M12 16.5V20"/><path d="M10 8.6l4 2-4 2z"/></symbol>
+</defs></svg>
+
+<div class="app" id="app">
+  <!-- ── toolbar ─────────────────────────────────────────────── -->
+  <header class="toolbar" data-od-id="toolbar">
+    <div class="brand" data-od-id="brand">
+      <svg class="brand-mark" aria-hidden="true"><use href="#i-cpu"/></svg>
+      <span class="brand-name">MemScanner</span>
+      <span class="brand-ver">0.4</span>
+    </div>
+
+    <div class="proc-chip" id="procChip" data-state="empty" data-od-id="attached-process-chip">
+      <span class="dot"></span>
+      <span class="proc-name" id="procName">未附加进程</span>
+      <span class="proc-meta" id="procMeta">选择一个目标进程后开始扫描</span>
+    </div>
+
+    <button class="btn" id="btnPick" data-od-id="toolbar-pick-process">
+      <svg class="icon" aria-hidden="true"><use href="#i-target"/></svg>
+      <span class="btn-lbl">选择进程</span>
+      <kbd>⌘N</kbd>
+    </button>
+    <button class="btn" id="btnVm" data-od-id="toolbar-vm-scan">
+      <svg class="icon" aria-hidden="true"><use href="#i-vm"/></svg>
+      <span class="btn-lbl">VM 扫描</span>
+    </button>
+
+    <span class="spacer"></span>
+    <span class="aot-badge" data-od-id="aot-badge"><svg class="icon" style="width:12px;height:12px" aria-hidden="true"><use href="#i-pin"/></svg>置顶紧凑</span>
+
+    <button class="btn" id="btnSave" data-od-id="toolbar-save-table">
+      <svg class="icon" aria-hidden="true"><use href="#i-save"/></svg><span class="btn-lbl">保存表</span>
+    </button>
+    <button class="btn" id="btnLoad" data-od-id="toolbar-load-table">
+      <svg class="icon" aria-hidden="true"><use href="#i-open"/></svg><span class="btn-lbl">加载表</span>
+    </button>
+    <button class="btn btn-icon" id="btnAot" aria-pressed="false" title="窗口置顶（紧凑布局）" data-od-id="toolbar-always-on-top">
+      <svg class="icon" aria-hidden="true"><use href="#i-pin"/></svg><span class="sr">窗口置顶</span>
+    </button>
+  </header>
+
+  <div class="body-grid">
+    <!-- ── scan control rail ───────────────────────────────── -->
+    <aside class="rail" data-od-id="scan-control-panel">
+      <div class="sec-head"><h2>扫描控制</h2><span class="spacer"></span>
+        <span class="count" id="sessionTag">未开始</span></div>
+
+      <div class="rail-scroll">
+        <div class="field" data-od-id="field-data-type">
+          <label for="dataType">数据类型</label>
+          <select class="control" id="dataType">
+            <option value="i8">1 字节整数</option>
+            <option value="i16">2 字节整数</option>
+            <option value="i32" selected>4 字节整数</option>
+            <option value="f32">4 字节浮点</option>
+            <option value="f64">8 字节浮点</option>
+            <option value="aob">字节数组（AOB）</option>
+          </select>
+        </div>
+
+        <div class="field" data-od-id="field-scan-condition">
+          <label for="condition">扫描条件</label>
+          <select class="control" id="condition">
+            <option value="exact" selected>精确值</option>
+            <option value="gt">大于</option>
+            <option value="lt">小于</option>
+            <option value="between">范围</option>
+            <option value="unknown">未知初始值</option>
+            <option value="changed" data-next>已改变</option>
+            <option value="unchanged" data-next>未改变</option>
+            <option value="increased" data-next>增加</option>
+            <option value="decreased" data-next>减少</option>
+          </select>
+          <p class="hint" id="condHint">首次扫描可用精确值、比较与未知初始值；差异条件在首次扫描后解锁。</p>
+        </div>
+
+        <div class="field" data-od-id="field-value">
+          <label for="val1" id="valLabel">数值</label>
+          <div class="two-up" id="valRow">
+            <input class="control mono" id="val1" inputmode="decimal" value="100" aria-describedby="valHint">
+            <span class="dash" id="valDash" hidden>–</span>
+            <input class="control mono" id="val2" hidden aria-label="范围上限">
+          </div>
+          <p class="hint mono" id="valHint" hidden>模式串示例：48 8B ?? ?? 90（?? 为通配字节）</p>
+        </div>
+
+        <div data-od-id="scan-options">
+          <button class="opt-toggle" id="optToggle" aria-expanded="false" aria-controls="optBody">
+            <svg class="icon chev" style="width:13px;height:13px" aria-hidden="true"><use href="#i-chev"/></svg>
+            扫描选项<span class="count" id="optSummary">默认 3 项</span>
+          </button>
+          <div class="opt-body" id="optBody" hidden>
+            <div class="switch-row">仅扫描可写区域
+              <button class="switch" role="switch" aria-checked="true" data-opt="writable"></button></div>
+            <div class="switch-row">跳过可执行区域
+              <button class="switch" role="switch" aria-checked="true" data-opt="skipExec"></button></div>
+            <div class="switch-row">跳过映射文件区域
+              <button class="switch" role="switch" aria-checked="false" data-opt="skipMapped"></button></div>
+            <p class="hint">关闭「仅扫描可写区域」会显著增加扫描区间与耗时。</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="rail-actions">
+        <div class="progress-wrap" id="progress" hidden aria-live="polite">
+          <div class="progress-meta"><span id="progLabel">扫描中…</span><span class="mono" id="progPct">0%</span></div>
+          <div class="track"><div class="bar" id="progBar"></div></div>
+        </div>
+        <button class="btn btn-primary" id="btnFirst" disabled data-od-id="cta-first-scan">
+          首次扫描<kbd style="border-color:color-mix(in oklab, var(--accent-on) 55%, transparent);color:var(--accent-on)">F5</kbd>
+        </button>
+        <div class="pair">
+          <button class="btn" id="btnNext" disabled data-od-id="cta-next-scan">再次扫描 <kbd>F6</kbd></button>
+          <button class="btn" id="btnUndo" disabled data-od-id="cta-undo-scan">
+            <svg class="icon" style="width:14px;height:14px" aria-hidden="true"><use href="#i-undo"/></svg>撤销
+          </button>
+        </div>
+        <div class="shortcut-strip" data-od-id="shortcut-strip">
+          <span><kbd>F5</kbd>首次</span><span><kbd>F6</kbd>再次</span><span><kbd>⌘Z</kbd>撤销</span>
+          <span><kbd>⌘S</kbd>保存表</span><span><kbd>⌘O</kbd>加载表</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ── results + address table ─────────────────────────── -->
+    <div class="stack">
+      <section class="sec" data-od-id="scan-results">
+        <div class="sec-head">
+          <h2>扫描结果</h2>
+          <span class="count" id="matchCount">尚无匹配</span>
+          <span class="spacer"></span>
+          <span class="count" id="scanMeta"></span>
+        </div>
+
+        <div class="empty" id="resultsEmpty" data-od-id="results-empty-state">
+          <div class="empty-inner">
+            <svg aria-hidden="true"><use href="#i-target"/></svg>
+            <h3>先附加到一个进程</h3>
+            <p>MemScanner 需要读写目标进程的内存。附加后即可选择数据类型并执行首次扫描，扫描过程中可继续切回游戏窗口。</p>
+            <button class="btn btn-primary" id="btnPickEmpty" data-od-id="cta-attach-process">附加到进程</button>
+          </div>
+        </div>
+
+        <div class="tbl-wrap" id="resultsWrap" hidden>
+          <table id="resultsTable">
+            <thead><tr>
+              <th style="width:196px">地址</th><th style="width:150px">当前值</th>
+              <th style="width:150px">上一次值</th><th>数据类型</th>
+            </tr></thead>
+            <tbody id="resultsBody"></tbody>
+          </table>
+        </div>
+
+        <div class="pager" id="pager" hidden data-od-id="results-pager">
+          <span class="info" id="pageInfo"></span>
+          <span class="spacer"></span>
+          <button class="btn btn-icon" id="pgFirst" title="第一页">«</button>
+          <button class="btn btn-icon" id="pgPrev" title="上一页">‹</button>
+          <input class="control page-in mono" id="pgInput" value="1" aria-label="跳转到页码">
+          <span class="info" id="pageTotal"></span>
+          <button class="btn btn-icon" id="pgNext" title="下一页">›</button>
+          <button class="btn btn-icon" id="pgLast" title="最后一页">»</button>
+        </div>
+      </section>
+
+      <section class="sec" data-od-id="address-table">
+        <div class="sec-head">
+          <h2>地址表</h2>
+          <span class="count" id="addrCount">0 条</span>
+          <span class="spacer"></span>
+          <span class="count"><span class="pulse"></span>每 500ms 刷新</span>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr>
+              <th style="width:56px">冻结</th><th style="width:236px">描述</th>
+              <th style="width:196px">地址</th><th style="width:132px">类型</th>
+              <th style="width:140px">当前值</th><th style="width:44px"><span class="sr">操作</span></th>
+            </tr></thead>
+            <tbody id="addrBody"></tbody>
+          </table>
+          <div class="empty" id="addrEmpty" style="min-height:120px" data-od-id="address-empty-state">
+            <div class="empty-inner">
+              <p>右键扫描结果 → <b>添加到地址表</b>，即可在此冻结或改写数值。双击数值可直接编辑，双击描述可重命名。</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<!-- ── hex drawer ───────────────────────────────────────────── -->
+<aside class="drawer" id="drawer" aria-hidden="true" data-od-id="hex-viewer-drawer">
+  <div class="drawer-head">
+    <svg class="icon" aria-hidden="true"><use href="#i-grid"/></svg>
+    <h2>内存查看器</h2>
+    <span class="spacer"></span>
+    <button class="btn-close" id="drawerClose"><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg><span class="sr">关闭</span></button>
+  </div>
+  <div class="drawer-bar">
+    <input class="control addr-in mono" id="hexAddr" value="7FF6A1C4E230" aria-label="跳转地址">
+    <button class="btn" id="hexGo" style="height:28px;font-size:11px">跳转</button>
+    <button class="btn btn-icon" id="hexUp" style="height:28px;width:28px" title="向上 0x100">↑</button>
+    <button class="btn btn-icon" id="hexDown" style="height:28px;width:28px" title="向下 0x100">↓</button>
+  </div>
+  <div class="hex" id="hexBody"></div>
+  <div class="drawer-foot">
+    <span><span class="pulse"></span>每 1s 自动刷新</span>
+    <span class="mono" id="hexRange"></span>
+  </div>
+</aside>
+
+<!-- ── process picker modal ─────────────────────────────────── -->
+<div class="scrim" id="procScrim" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="procTitle" data-od-id="process-picker-modal">
+    <div class="modal-head">
+      <div>
+        <h2 id="procTitle">选择目标进程</h2>
+        <p>双击一行，或选中后点击「附加」。需要虚拟机内的进程请改用 VM 扫描。</p>
+      </div>
+      <span class="spacer"></span>
+      <button class="btn-close" id="procClose"><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg><span class="sr">关闭</span></button>
+    </div>
+    <div class="search-wrap">
+      <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
+      <input class="control search-in" id="procSearch" placeholder="按进程名或 PID 过滤…" data-od-id="process-search">
+    </div>
+    <div class="modal-body">
+      <table>
+        <thead><tr><th style="width:86px">PID</th><th>进程名</th><th style="width:76px">架构</th><th style="width:106px">私有内存</th></tr></thead>
+        <tbody id="procBody"></tbody>
+      </table>
+      <div class="empty" id="procNoMatch" hidden style="min-height:120px"><div class="empty-inner"><p>没有匹配的进程。</p></div></div>
+    </div>
+    <div class="modal-foot">
+      <span class="count" id="procFootCount"></span>
+      <div class="actions">
+        <button class="btn" id="procCancel">取消</button>
+        <button class="btn btn-solid-dark" id="procAttach" disabled data-od-id="process-attach-confirm">附加</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── context menus ───────────────────────────────────────── -->
+<div class="ctx" id="ctxResults" hidden data-od-id="results-context-menu">
+  <button data-act="add"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>添加到地址表</button>
+  <button data-act="hex"><svg class="icon" aria-hidden="true"><use href="#i-grid"/></svg>在内存查看器中打开</button>
+  <button data-act="ptr"><svg class="icon" aria-hidden="true"><use href="#i-link"/></svg>发起指针扫描</button>
+  <hr>
+  <button data-act="copy"><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg>复制地址</button>
+</div>
+<div class="ctx" id="ctxAddr" hidden data-od-id="address-context-menu">
+  <button data-act="freeze"><svg class="icon" aria-hidden="true"><use href="#i-snow"/></svg>切换冻结</button>
+  <button data-act="hex"><svg class="icon" aria-hidden="true"><use href="#i-grid"/></svg>在内存查看器中打开</button>
+  <button data-act="copy"><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg>复制地址</button>
+  <hr>
+  <button data-act="del" class="danger"><svg class="icon" aria-hidden="true"><use href="#i-trash"/></svg>删除条目</button>
+</div>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<script>
+/* ══════════════ state ══════════════ */
+const TYPE_LABEL = { i8:'1 字节整数', i16:'2 字节整数', i32:'4 字节整数', f32:'4 字节浮点', f64:'8 字节浮点', aob:'字节数组' };
+const TYPE_SHORT = { i8:'INT8', i16:'INT16', i32:'INT32', f32:'FLOAT', f64:'DOUBLE', aob:'AOB' };
+const PAGE_SIZE = 200;
+
+const S = {
+  attached: null,
+  type: 'i32',
+  cond: 'exact',
+  total: 0,
+  page: 1,
+  history: [],
+  rows: new Map(),
+  selected: null,
+  addr: [],
+  hexBase: 0x7FF6A1C4E230,
+  hexSeed: 41,
+  scanning: false,
+};
+
+const PROCESSES = [
+  { pid: 8124, name: 'HollowKnight.exe', arch: 'x64', mem: '412 MB' },
+  { pid: 4432, name: 'StardewValley.exe', arch: 'x64', mem: '318 MB' },
+  { pid: 12908, name: 'Terraria.exe', arch: 'x64', mem: '905 MB' },
+  { pid: 6640, name: 'FactoryGame-Win64-Shipping.exe', arch: 'x64', mem: '3.1 GB' },
+  { pid: 2210, name: 'steam.exe', arch: 'x86', mem: '186 MB' },
+  { pid: 9004, name: 'steamwebhelper.exe', arch: 'x64', mem: '744 MB' },
+  { pid: 15332, name: 'vmware-vmx', arch: 'x64', mem: '4.0 GB' },
+  { pid: 3712, name: 'Code Helper (Renderer)', arch: 'arm64', mem: '661 MB' },
+  { pid: 7180, name: 'chrome.exe', arch: 'x64', mem: '1.2 GB' },
+  { pid: 5520, name: 'Discord.exe', arch: 'x64', mem: '288 MB' },
+  { pid: 9876, name: 'obs64.exe', arch: 'x64', mem: '520 MB' },
+  { pid: 1288, name: 'explorer.exe', arch: 'x64', mem: '132 MB' },
+  { pid: 1024, name: 'dwm.exe', arch: 'x64', mem: '96 MB' },
+  { pid: 664, name: 'svchost.exe', arch: 'x64', mem: '41 MB' },
+];
+
+const $ = (id) => document.getElementById(id);
+const fmt = (n) => n.toLocaleString('zh-CN');
+const hex = (n, w = 12) => n.toString(16).toUpperCase().padStart(w, '0');
+
+/* deterministic per-row pseudo values so paging stays stable */
+function rnd(seed) { let x = Math.sin(seed) * 10000; return x - Math.floor(x); }
+function addrAt(i, seed) { return 0x7FF600000000 + Math.floor(rnd(seed + i * 1.37) * 0x3FFFFFF0 / 4) * 4; }
+function valAt(i, seed, type, base) {
+  const r = rnd(seed * 1.7 + i * 2.11);
+  if (type === 'aob') return '48 8B ' + hex(Math.floor(r * 255), 2) + ' ' + hex(Math.floor(rnd(r) * 255), 2) + ' 90';
+  if (type === 'f32' || type === 'f64') return (base + (r - 0.5) * 0.004).toFixed(type === 'f32' ? 3 : 6);
+  return String(base);
+}
+
+/* ══════════════ toasts ══════════════ */
+function toast(kind, title, sub) {
+  const el = document.createElement('div');
+  el.className = 'toast'; el.dataset.kind = kind;
+  const icon = kind === 'success' ? 'i-check' : kind === 'error' ? 'i-alert' : 'i-info';
+  el.innerHTML = `<svg class="icon"><use href="#${icon}"/></svg><div class="txt">${title}${sub ? `<em>${sub}</em>` : ''}</div>`;
+  $('toasts').append(el);
+  setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 220); }, 3200);
+}
+
+/* ══════════════ process picker ══════════════ */
+let pickedPid = null;
+function openPicker() {
+  $('procScrim').hidden = false; pickedPid = null; $('procAttach').disabled = true;
+  $('procSearch').value = ''; renderProcs(); setTimeout(() => $('procSearch').focus(), 30);
+}
+function closePicker() { $('procScrim').hidden = true; }
+function renderProcs() {
+  const q = $('procSearch').value.trim().toLowerCase();
+  const list = PROCESSES.filter(p => !q || p.name.toLowerCase().includes(q) || String(p.pid).includes(q));
+  $('procBody').innerHTML = list.map(p => `
+    <tr data-pid="${p.pid}" aria-selected="${pickedPid === p.pid}">
+      <td class="mono dim">${p.pid}</td><td>${p.name}</td>
+      <td><span class="type-tag">${p.arch}</span></td><td class="mono dim num">${p.mem}</td>
+    </tr>`).join('');
+  $('procNoMatch').hidden = list.length > 0;
+  $('procFootCount').textContent = `${list.length} / ${PROCESSES.length} 个可附加进程`;
+}
+function attach(pid) {
+  const p = PROCESSES.find(x => x.pid === pid); if (!p) return;
+  S.attached = p; closePicker();
+  const chip = $('procChip'); chip.dataset.state = 'ready';
+  $('procName').textContent = p.name;
+  $('procMeta').textContent = `PID ${p.pid} · ${p.arch} · 已获得读写权限`;
+  $('btnFirst').disabled = false;
+  resetSession();
+  toast('success', `已附加到 ${p.name}`, `PID ${p.pid} · 按 F5 执行首次扫描`);
+}
+
+$('btnPick').onclick = openPicker;
+$('btnPickEmpty').onclick = openPicker;
+$('procClose').onclick = closePicker;
+$('procCancel').onclick = closePicker;
+$('procSearch').oninput = renderProcs;
+$('procScrim').addEventListener('mousedown', (e) => { if (e.target === $('procScrim')) closePicker(); });
+$('procBody').addEventListener('click', (e) => {
+  const tr = e.target.closest('tr'); if (!tr) return;
+  pickedPid = Number(tr.dataset.pid); $('procAttach').disabled = false; renderProcs();
+});
+$('procBody').addEventListener('dblclick', (e) => {
+  const tr = e.target.closest('tr'); if (tr) attach(Number(tr.dataset.pid));
+});
+$('procAttach').onclick = () => pickedPid && attach(pickedPid);
+
+/* ══════════════ scan panel ══════════════ */
+function syncCondition() {
+  const first = S.total === 0 && S.history.length === 0;
+  [...$('condition').options].forEach(o => { if (o.dataset.next !== undefined) o.disabled = first; });
+  if (first && $('condition').selectedOptions[0].disabled) $('condition').value = 'exact';
+  S.cond = $('condition').value; S.type = $('dataType').value;
+
+  const needsNone = ['unknown', 'changed', 'unchanged', 'increased', 'decreased'].includes(S.cond);
+  const needsTwo = S.cond === 'between';
+  const aob = S.type === 'aob';
+  $('valRow').style.display = needsNone ? 'none' : 'grid';
+  $('valLabel').textContent = needsNone ? '数值（该条件无需输入）' : needsTwo ? '范围（下限 – 上限）' : aob ? '十六进制模式串' : '数值';
+  $('valDash').hidden = !needsTwo; $('val2').hidden = !needsTwo;
+  $('valHint').hidden = !aob;
+  $('val1').placeholder = aob ? '48 8B ?? ?? 90' : '例如 100';
+  if (aob && !/[a-fA-F?]/.test($('val1').value)) $('val1').value = '48 8B ?? ?? 90';
+  if (!aob && /[?]/.test($('val1').value)) $('val1').value = '100';
+  $('condHint').textContent = needsNone
+    ? '该条件与上一轮结果集比较，无需输入数值——回到游戏改变数值后按 F6。'
+    : '首次扫描可用精确值、比较与未知初始值；差异条件在首次扫描后解锁。';
+  $('btnNext').disabled = !(S.total > 0) || S.scanning;
+}
+$('dataType').onchange = syncCondition;
+$('condition').onchange = syncCondition;
+
+$('optToggle').onclick = () => {
+  const t = $('optToggle'), open = t.getAttribute('aria-expanded') === 'true';
+  t.setAttribute('aria-expanded', String(!open)); $('optBody').hidden = open;
+};
+document.querySelectorAll('.switch').forEach(sw => sw.onclick = () => {
+  const on = sw.getAttribute('aria-checked') === 'true';
+  sw.setAttribute('aria-checked', String(!on));
+  const n = [...document.querySelectorAll('.switch')].filter(s => s.getAttribute('aria-checked') === 'true').length;
+  $('optSummary').textContent = `已启用 ${n} 项`;
+  if (sw.dataset.opt === 'writable' && on) toast('info', '已关闭「仅扫描可写区域」', '扫描区间将显著扩大，耗时增加约 3–6 倍');
+});
+
+function resetSession() {
+  S.total = 0; S.page = 1; S.history = []; S.selected = null;
+  $('resultsEmpty').hidden = !!S.attached ? false : false;
+  $('resultsWrap').hidden = true; $('pager').hidden = true;
+  $('matchCount').textContent = '尚无匹配'; $('scanMeta').textContent = '';
+  $('sessionTag').textContent = S.attached ? '就绪' : '未开始';
+  $('btnUndo').disabled = true;
+  $('resultsEmpty').hidden = false;
+  if (S.attached) {
+    $('resultsEmpty').querySelector('h3').textContent = '准备执行首次扫描';
+    $('resultsEmpty').querySelector('p').textContent =
+      `已附加 ${S.attached.name}。选择数据类型与扫描条件，输入当前看到的数值后按 F5；随后回到游戏让数值变化，再按 F6 过滤。`;
+    $('btnPickEmpty').textContent = '重新选择进程';
+    $('btnPickEmpty').className = 'btn';
+  }
+  syncCondition();
+}
+
+function runScan(kind) {
+  if (!S.attached || S.scanning) return;
+  if (kind === 'next' && S.total === 0) { toast('error', '尚无结果集可过滤', '请先执行首次扫描（F5）'); return; }
+  S.scanning = true;
+  $('btnFirst').disabled = true; $('btnNext').disabled = true;
+  $('progress').hidden = false; $('sessionTag').textContent = '扫描中';
+  const regions = kind === 'first' ? 1482 : 96;
+  $('progLabel').textContent = kind === 'first' ? '扫描可写区域…' : '过滤上一轮结果…';
+  let pct = 0;
+  const timer = setInterval(() => {
+    pct = Math.min(100, pct + (kind === 'first' ? 4 + Math.random() * 7 : 11 + Math.random() * 14));
+    $('progBar').style.width = pct + '%';
+    $('progPct').textContent = Math.floor(pct) + '%';
+    $('progLabel').textContent = `${kind === 'first' ? '扫描' : '过滤'} ${Math.min(regions, Math.ceil(regions * pct / 100))}/${regions} 区域`;
+    if (pct >= 100) { clearInterval(timer); finishScan(kind); }
+  }, 90);
+}
+
+function finishScan(kind) {
+  const prevTotal = S.total;
+  if (kind === 'first') {
+    S.history = [];
+    S.total = 1284993 + Math.floor(Math.random() * 40000);
+    S.seed = 7 + Math.random() * 3;
+    S.prevSeed = null;
+    S.base = Number($('val1').value.replace(/[^\d.-]/g, '')) || 100;
+    S.prevBase = null;
+  } else {
+    S.history.push({ total: S.total, seed: S.seed, base: S.base, prevSeed: S.prevSeed, prevBase: S.prevBase });
+    S.prevSeed = S.seed; S.prevBase = S.base;
+    S.seed = S.seed * 1.31 + 0.7;
+    S.base = ['unknown', 'changed', 'increased', 'decreased'].includes(S.cond)
+      ? S.base + (S.cond === 'decreased' ? -1 : 1) * (7 + Math.floor(Math.random() * 20))
+      : Number($('val1').value.replace(/[^\d.-]/g, '')) || S.base;
+    const factor = S.total > 200000 ? 380 + Math.random() * 900 : 14 + Math.random() * 40;
+    S.total = Math.max(2, Math.floor(S.total / factor));
+  }
+  S.page = 1; S.scanning = false; S.selected = null;
+  $('progress').hidden = true; $('progBar').style.width = '0%';
+  $('btnFirst').disabled = false;
+  $('btnUndo').disabled = S.history.length === 0;
+  $('sessionTag').textContent = `第 ${S.history.length + 1} 轮`;
+  renderResults();
+  if (kind === 'first') toast('success', `首次扫描完成`, `${fmt(S.total)} 条匹配 · 回到游戏改变数值后按 F6 过滤`);
+  else toast('success', '过滤完成', `${fmt(prevTotal)} → ${fmt(S.total)} 条${S.total <= 12 ? ' · 结果已足够小，右键添加到地址表' : ''}`);
+  syncCondition();
+}
+
+function undoScan() {
+  const prev = S.history.pop(); if (!prev) return;
+  Object.assign(S, { total: prev.total, seed: prev.seed, base: prev.base, prevSeed: prev.prevSeed, prevBase: prev.prevBase });
+  S.page = 1; $('btnUndo').disabled = S.history.length === 0;
+  $('sessionTag').textContent = `第 ${S.history.length + 1} 轮`;
+  renderResults(); syncCondition();
+  toast('info', '已撤销上一次过滤', `结果集回退到 ${fmt(S.total)} 条`);
+}
+
+$('btnFirst').onclick = () => runScan('first');
+$('btnNext').onclick = () => runScan('next');
+$('btnUndo').onclick = undoScan;
+
+/* ══════════════ results table ══════════════ */
+function renderResults() {
+  if (!S.total) { $('resultsEmpty').hidden = false; $('resultsWrap').hidden = true; $('pager').hidden = true; return; }
+  $('resultsEmpty').hidden = true; $('resultsWrap').hidden = false; $('pager').hidden = false;
+  const pages = Math.ceil(S.total / PAGE_SIZE);
+  S.page = Math.min(Math.max(1, S.page), pages);
+  const start = (S.page - 1) * PAGE_SIZE;
+  const rows = [];
+  S.rows.clear();
+  for (let i = start; i < Math.min(S.total, start + PAGE_SIZE); i++) {
+    const a = addrAt(i, S.seed);
+    const cur = valAt(i, S.seed, S.type, S.base);
+    const prev = S.prevSeed === null ? null : valAt(i, S.prevSeed, S.type, S.prevBase);
+    S.rows.set(i, { a, cur });
+    rows.push(`<tr data-i="${i}" aria-selected="false">
+      <td class="mono">0x${hex(a)}</td>
+      <td class="mono${prev !== null && prev !== cur ? ' changed' : ''}">${cur}</td>
+      <td class="mono dim">${prev === null ? '—' : prev}</td>
+      <td><span class="type-tag">${TYPE_SHORT[S.type]}</span></td>
+    </tr>`);
+  }
+  $('resultsBody').innerHTML = rows.join('');
+  $('matchCount').innerHTML = `<b>${fmt(S.total)}</b> 条匹配`;
+  $('scanMeta').textContent = `${TYPE_LABEL[S.type]} · ${$('condition').selectedOptions[0].text}`;
+  $('pageInfo').textContent = `显示第 ${fmt(start + 1)}–${fmt(Math.min(S.total, start + PAGE_SIZE))} 条（每页 ${PAGE_SIZE}，窗口化渲染）`;
+  $('pageTotal').textContent = `/ ${fmt(pages)}`;
+  $('pgInput').value = S.page;
+  $('pgPrev').disabled = $('pgFirst').disabled = S.page === 1;
+  $('pgNext').disabled = $('pgLast').disabled = S.page === pages;
+}
+const go = (p) => { S.page = p; renderResults(); };
+$('pgFirst').onclick = () => go(1);
+$('pgPrev').onclick = () => go(S.page - 1);
+$('pgNext').onclick = () => go(S.page + 1);
+$('pgLast').onclick = () => go(Math.ceil(S.total / PAGE_SIZE));
+$('pgInput').onchange = () => go(Number($('pgInput').value) || 1);
+
+$('resultsBody').addEventListener('click', (e) => {
+  const tr = e.target.closest('tr'); if (!tr) return;
+  [...$('resultsBody').rows].forEach(r => r.setAttribute('aria-selected', 'false'));
+  tr.setAttribute('aria-selected', 'true'); S.selected = Number(tr.dataset.i);
+});
+
+/* ══════════════ context menus ══════════════ */
+let ctxTarget = null;
+function openCtx(menu, x, y, target) {
+  ctxTarget = target;
+  const m = $(menu); m.hidden = false;
+  const w = m.offsetWidth, h = m.offsetHeight;
+  m.style.left = Math.min(x, innerWidth - w - 8) + 'px';
+  m.style.top = Math.min(y, innerHeight - h - 8) + 'px';
+}
+function closeCtx() { $('ctxResults').hidden = true; $('ctxAddr').hidden = true; }
+addEventListener('mousedown', (e) => { if (!e.target.closest('.ctx')) closeCtx(); });
+addEventListener('blur', closeCtx);
+addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeCtx(); closePicker(); closeDrawer(); } });
+
+$('resultsBody').addEventListener('contextmenu', (e) => {
+  const tr = e.target.closest('tr'); if (!tr) return;
+  e.preventDefault();
+  [...$('resultsBody').rows].forEach(r => r.setAttribute('aria-selected', 'false'));
+  tr.setAttribute('aria-selected', 'true');
+  S.selected = Number(tr.dataset.i);
+  openCtx('ctxResults', e.clientX, e.clientY, S.selected);
+});
+$('ctxResults').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  const row = S.rows.get(ctxTarget); closeCtx(); if (!row) return;
+  if (b.dataset.act === 'add') addToTable(row);
+  if (b.dataset.act === 'hex') openDrawer(row.a);
+  if (b.dataset.act === 'ptr') {
+    toast('info', '正在打开指针扫描', `目标地址 0x${hex(row.a)} · 最大深度 5`);
+    setTimeout(() => location.href = 'pointer-scan.html', 520);
+  }
+  if (b.dataset.act === 'copy') copyAddr(row.a);
+});
+function copyAddr(a) {
+  const t = '0x' + hex(a);
+  navigator.clipboard?.writeText(t).catch(() => {});
+  toast('success', '地址已复制', t);
+}
+
+/* ══════════════ address table ══════════════ */
+function addToTable(row) {
+  if (S.addr.some(r => r.a === row.a)) { toast('error', '该地址已在地址表中', '0x' + hex(row.a)); return; }
+  S.addr.push({
+    id: 'a' + Math.random().toString(36).slice(2, 8),
+    a: row.a, type: S.type, label: guessLabel(), value: row.cur, frozen: false,
+  });
+  renderAddr(); persist();
+  toast('success', '已添加到地址表', '0x' + hex(row.a) + ' · 双击数值可直接改写');
+}
+let labelSeq = 0;
+function guessLabel() {
+  const pool = ['生命值', '金币', '弹药', '经验值', '技能点', '耐久度', '体力'];
+  return pool[labelSeq++ % pool.length];
+}
+function renderAddr() {
+  $('addrEmpty').hidden = S.addr.length > 0;
+  $('addrCount').textContent = `${S.addr.length} 条` + (S.addr.filter(r => r.frozen).length ? ` · ${S.addr.filter(r => r.frozen).length} 条冻结中` : '');
+  $('addrBody').innerHTML = S.addr.map(r => `
+    <tr data-id="${r.id}" class="${r.frozen ? 'frozen' : ''}">
+      <td><input class="cb" type="checkbox" ${r.frozen ? 'checked' : ''} aria-label="冻结 ${r.label}"></td>
+      <td class="lbl" title="双击重命名">${r.label}${r.frozen ? ' <span class="freeze-pill">冻结</span>' : ''}</td>
+      <td class="mono">0x${hex(r.a)}</td>
+      <td><span class="type-tag">${TYPE_SHORT[r.type]}</span></td>
+      <td class="mono val" title="双击编辑">${r.value}</td>
+      <td><button class="row-del" title="删除条目"><svg class="icon" style="width:14px;height:14px"><use href="#i-trash"/></svg><span class="sr">删除</span></button></td>
+    </tr>`).join('');
+}
+$('addrBody').addEventListener('change', (e) => {
+  if (!e.target.classList.contains('cb')) return;
+  const id = e.target.closest('tr').dataset.id;
+  const r = S.addr.find(x => x.id === id); r.frozen = e.target.checked;
+  renderAddr(); persist();
+  toast(r.frozen ? 'success' : 'info', r.frozen ? `已冻结「${r.label}」` : `已解除「${r.label}」冻结`,
+    `0x${hex(r.a)} · ${r.frozen ? '写入线程每 16ms 回写 ' + r.value : '数值恢复随游戏变化'}`);
+});
+$('addrBody').addEventListener('click', (e) => {
+  const del = e.target.closest('.row-del'); if (!del) return;
+  const tr = del.closest('tr'), r = S.addr.find(x => x.id === tr.dataset.id);
+  S.addr = S.addr.filter(x => x.id !== tr.dataset.id);
+  renderAddr(); persist(); toast('info', '已删除条目', `${r.label} · 0x${hex(r.a)}`);
+});
+$('addrBody').addEventListener('dblclick', (e) => {
+  const td = e.target.closest('td'); if (!td) return;
+  const tr = td.closest('tr'), r = S.addr.find(x => x.id === tr.dataset.id);
+  if (td.classList.contains('val')) inlineEdit(td, r.value, (v) => {
+    r.value = v; r.frozen = r.frozen; renderAddr(); persist();
+    toast('success', `已写入 ${v}`, `${r.label} · 0x${hex(r.a)}`);
+  });
+  if (td.classList.contains('lbl')) inlineEdit(td, r.label, (v) => {
+    r.label = v || r.label; renderAddr(); persist();
+  });
+});
+function inlineEdit(td, cur, done) {
+  td.innerHTML = `<input class="edit-in mono" value="${cur}">`;
+  const inp = td.querySelector('input'); inp.focus(); inp.select();
+  const commit = () => { const v = inp.value.trim(); inp.onblur = null; done(v || cur); };
+  inp.onblur = commit;
+  inp.onkeydown = (ev) => {
+    if (ev.key === 'Enter') commit();
+    if (ev.key === 'Escape') { inp.onblur = null; renderAddr(); }
+  };
+}
+$('addrBody').addEventListener('contextmenu', (e) => {
+  const tr = e.target.closest('tr'); if (!tr) return;
+  e.preventDefault(); openCtx('ctxAddr', e.clientX, e.clientY, tr.dataset.id);
+});
+$('ctxAddr').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  const r = S.addr.find(x => x.id === ctxTarget); closeCtx(); if (!r) return;
+  if (b.dataset.act === 'freeze') { r.frozen = !r.frozen; renderAddr(); persist();
+    toast(r.frozen ? 'success' : 'info', r.frozen ? `已冻结「${r.label}」` : `已解除「${r.label}」冻结`, '0x' + hex(r.a)); }
+  if (b.dataset.act === 'hex') openDrawer(r.a);
+  if (b.dataset.act === 'copy') copyAddr(r.a);
+  if (b.dataset.act === 'del') { S.addr = S.addr.filter(x => x.id !== r.id); renderAddr(); persist();
+    toast('info', '已删除条目', `${r.label} · 0x${hex(r.a)}`); }
+});
+
+/* live refresh — 500ms, frozen rows hold their value */
+setInterval(() => {
+  if (!S.addr.length) return;
+  let touched = false;
+  S.addr.forEach(r => {
+    if (r.frozen) return;
+    const n = Number(r.value);
+    if (Number.isFinite(n) && Math.random() < 0.55) {
+      r.value = String(Math.max(0, n + (Math.random() < 0.5 ? -1 : 1) * (1 + Math.floor(Math.random() * 3))));
+      touched = true;
+    }
+  });
+  if (!touched) return;
+  const active = document.activeElement;
+  if (active && active.classList.contains('edit-in')) return;
+  [...$('addrBody').rows].forEach(tr => {
+    const r = S.addr.find(x => x.id === tr.dataset.id); if (!r) return;
+    const cell = tr.querySelector('.val');
+    if (cell && cell.textContent !== r.value) { cell.textContent = r.value; cell.classList.remove('flash'); void cell.offsetWidth; cell.classList.add('flash'); }
+  });
+}, 500);
+
+/* ══════════════ hex drawer ══════════════ */
+let hexTimer = null;
+function openDrawer(addr) {
+  S.hexBase = addr - (addr % 16) - 0x40;
+  $('hexAddr').value = hex(addr);
+  $('drawer').classList.add('open'); $('drawer').setAttribute('aria-hidden', 'false');
+  renderHex(addr);
+  clearInterval(hexTimer);
+  hexTimer = setInterval(() => { S.hexSeed += 1.7; renderHex(addr); }, 1000);
+}
+function closeDrawer() {
+  $('drawer').classList.remove('open'); $('drawer').setAttribute('aria-hidden', 'true');
+  clearInterval(hexTimer); hexTimer = null;
+}
+$('drawerClose').onclick = closeDrawer;
+function renderHex(focus) {
+  const rows = [];
+  for (let r = 0; r < 22; r++) {
+    const base = S.hexBase + r * 16;
+    let bytes = '', ascii = '';
+    for (let c = 0; c < 16; c++) {
+      const b = Math.floor(rnd(base * 0.00031 + c * 3.7 + (c < 8 ? S.hexSeed * 0 : S.hexSeed) * 0.03) * 256);
+      const isFocus = focus !== undefined && base + c === focus;
+      const h = hex(b, 2);
+      bytes += (isFocus ? `<b>${h}</b>` : h) + (c === 7 ? '  ' : ' ');
+      ascii += b >= 32 && b < 127 ? String.fromCharCode(b).replace(/[<>&]/g, '.') : '.';
+    }
+    rows.push(`<div class="hex-row"><span class="off">${hex(base)}</span><span>${bytes}</span><span class="ascii">${ascii}</span></div>`);
+  }
+  $('hexBody').innerHTML = rows.join('');
+  $('hexRange').textContent = `0x${hex(S.hexBase)} – 0x${hex(S.hexBase + 22 * 16 - 1)}`;
+}
+$('hexGo').onclick = () => {
+  const v = parseInt($('hexAddr').value.replace(/^0x/i, ''), 16);
+  if (!Number.isFinite(v)) { toast('error', '地址格式无效', '请输入十六进制地址，例如 7FF6A1C4E230'); return; }
+  openDrawer(v); toast('info', '已跳转', '0x' + hex(v));
+};
+$('hexUp').onclick = () => { S.hexBase -= 0x100; renderHex(); };
+$('hexDown').onclick = () => { S.hexBase += 0x100; renderHex(); };
+
+/* ══════════════ cheat table persistence ══════════════ */
+const KEY = 'memscanner.cheattable.v1';
+function persist() { try { localStorage.setItem(KEY, JSON.stringify(S.addr)); } catch (e) {} }
+function saveTable() {
+  persist();
+  toast('success', '已保存 Cheat Table', `${S.addr.length} 条地址 → HollowKnight.mst`);
+}
+function loadTable() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(KEY) || '[]');
+    if (!raw.length) { toast('error', '没有可加载的 Cheat Table', '先添加地址并保存一次'); return; }
+    S.addr = raw; renderAddr();
+    toast('success', '已加载 Cheat Table', `恢复 ${raw.length} 条地址与冻结状态`);
+  } catch (e) { toast('error', 'Cheat Table 解析失败', '文件可能已损坏'); }
+}
+$('btnSave').onclick = saveTable;
+$('btnLoad').onclick = loadTable;
+
+/* ══════════════ always-on-top / compact ══════════════ */
+$('btnAot').onclick = () => {
+  const on = $('btnAot').getAttribute('aria-pressed') === 'true';
+  $('btnAot').setAttribute('aria-pressed', String(!on));
+  $('app').classList.toggle('compact', !on);
+  toast('info', !on ? '窗口已置顶' : '已取消置顶', !on ? '切换为紧凑布局，行高 22px，便于与游戏窗口并排' : '恢复标准密度');
+};
+$('btnVm').onclick = () => { toast('info', '正在打开 VM 扫描', '检测宿主上运行的虚拟机'); setTimeout(() => location.href = 'vm-scan.html', 420); };
+
+/* ══════════════ shortcuts ══════════════ */
+addEventListener('keydown', (e) => {
+  const typing = /input|select|textarea/i.test(document.activeElement?.tagName || '');
+  const mod = e.metaKey || e.ctrlKey;
+  if (e.key === 'F5') { e.preventDefault(); runScan('first'); }
+  else if (e.key === 'F6') { e.preventDefault(); runScan('next'); }
+  else if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); undoScan(); }
+  else if (mod && e.key.toLowerCase() === 'n') { e.preventDefault(); openPicker(); }
+  else if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); saveTable(); }
+  else if (mod && e.key.toLowerCase() === 'o') { e.preventDefault(); loadTable(); }
+  else if (e.key === 'Enter' && $('procScrim').hidden === false && pickedPid) { attach(pickedPid); }
+  else if (!typing && e.key === 'Delete' && S.addr.length) {
+    const last = S.addr[S.addr.length - 1];
+    S.addr.pop(); renderAddr(); persist(); toast('info', '已删除条目', `${last.label} · 0x${hex(last.a)}`);
+  }
+});
+
+/* ══════════════ boot ══════════════ */
+syncCondition(); renderAddr(); renderHex();
+setTimeout(() => toast('info', '未附加进程', '按 ⌘N 或点击「选择进程」开始'), 500);
+</script>
+</body>
+</html>

@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MemScanner — 指针扫描</title>
+<style>
+:root {
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-warm: #f7f7f7;
+
+  --fg: #222222;
+  --fg-2: #3f3f3f;
+  --muted: #6a6a6a;
+  --meta: #929292;
+
+  --border: #dddddd;
+  --border-soft: #ebebeb;
+
+  --accent: #ff385c;
+  --accent-on: #ffffff;
+  --accent-hover: #e31c5f;
+  --accent-active: #e00b41;
+
+  --success: #008a05;
+  --warn: #c47700;
+  --danger: #c13515;
+
+  --font-display:
+    "Airbnb Cereal VF", "Airbnb Cereal App", Circular,
+    -apple-system, system-ui, "Helvetica Neue", Roboto, sans-serif;
+  --font-body:
+    "Airbnb Cereal VF", "Airbnb Cereal App", Circular,
+    -apple-system, system-ui, "Helvetica Neue", Roboto, sans-serif;
+  --font-mono:
+    ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Monaco,
+    Consolas, monospace;
+
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-base: 16px;
+  --text-lg: 20px;
+  --text-xl: 22px;
+  --text-2xl: 28px;
+  --text-3xl: 44px;
+  --text-4xl: 56px;
+
+  --leading-body: 1.43;
+  --leading-tight: 1.2;
+  --tracking-display: -0.02em;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+
+  --section-y-desktop: 64px;
+  --section-y-tablet: 48px;
+  --section-y-phone: 32px;
+
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-pill: 9999px;
+
+  --elev-flat: none;
+  --elev-ring: 0 0 0 1px var(--border);
+  --elev-raised:
+    rgba(0, 0, 0, 0.02) 0 0 0 1px,
+    rgba(0, 0, 0, 0.04) 0 2px 6px 0,
+    rgba(0, 0, 0, 0.1) 0 4px 8px 0;
+
+  --focus-ring: 0 0 0 2px var(--fg);
+
+  --motion-fast: 150ms;
+  --motion-base: 200ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+
+  --container-max: 1280px;
+  --container-gutter-desktop: 40px;
+  --container-gutter-tablet: 24px;
+  --container-gutter-phone: 16px;
+}
+:root {
+  --hover: color-mix(in oklab, var(--fg) 5%, var(--surface));
+  --pressed: color-mix(in oklab, var(--fg) 9%, var(--surface));
+  --sel: color-mix(in oklab, var(--fg) 8%, var(--surface));
+  --danger-tint: color-mix(in oklab, var(--danger) 8%, var(--surface));
+  --scrim: color-mix(in oklab, var(--fg) 46%, transparent);
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; overflow: hidden; }
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body);
+  font-size: 13px; font-weight: 500; line-height: var(--leading-body); -webkit-font-smoothing: antialiased; }
+button, input, select { font: inherit; color: inherit; }
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.icon { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none;
+  stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.spacer { flex: 1 1 auto; }
+
+/* backdrop: the workbench the dialog was launched from */
+.back { position: fixed; inset: 0; display: grid; grid-template-rows: 56px 1fr; min-width: 960px; }
+.back-tb { display: flex; align-items: center; gap: var(--space-3); padding: 0 var(--space-4);
+  border-bottom: 1px solid var(--border); }
+.back-body { display: grid; grid-template-columns: 300px 1fr; }
+.back-rail { border-right: 1px solid var(--border); padding: var(--space-4); display: grid; gap: 14px; align-content: start; }
+.ghost { height: 34px; border: 1px solid var(--border-soft); border-radius: var(--radius-sm); background: var(--surface-warm); }
+.ghost.lbl { height: 9px; width: 62px; border: 0; border-radius: var(--radius-pill); }
+.ghost.cta { background: color-mix(in oklab, var(--accent) 22%, var(--surface-warm)); border-color: transparent; height: 40px; }
+.back-main { display: grid; grid-template-rows: 38px 1fr; }
+.back-sec { border-bottom: 1px solid var(--border); background: var(--surface-warm);
+  display: flex; align-items: center; padding: 0 var(--space-4); font-size: var(--text-xs); font-weight: 700; }
+.back-rows { padding: 0; }
+.back-row { height: 27px; border-bottom: 1px solid var(--border-soft); display: grid;
+  grid-template-columns: 196px 150px 150px 1fr; align-items: center; padding: 0 var(--space-3);
+  font-family: var(--font-mono); font-size: var(--text-xs); color: var(--muted); }
+.back-row.hit { background: var(--sel); color: var(--fg); box-shadow: inset 2px 0 0 var(--fg); }
+
+.scrim { position: fixed; inset: 0; z-index: 60; background: var(--scrim);
+  display: grid; place-items: center; padding: var(--space-6); }
+.modal { width: 760px; max-height: 84vh; display: flex; flex-direction: column;
+  background: var(--surface); border-radius: var(--radius-md); box-shadow: var(--elev-raised); overflow: hidden; }
+.modal-head { display: flex; align-items: flex-start; gap: var(--space-3); padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border); }
+.modal-head h1 { margin: 0; font-family: var(--font-display); font-size: var(--text-base); font-weight: 700; letter-spacing: -0.01em; }
+.modal-head p { margin: 3px 0 0; font-size: 11px; color: var(--muted); max-width: 52ch; }
+.btn-close { width: 32px; height: 32px; border-radius: var(--radius-pill); border: 1px solid var(--border);
+  background: var(--surface); display: grid; place-items: center; cursor: pointer; color: var(--fg); }
+.btn-close:hover { background: var(--hover); }
+.btn-close:active { transform: scale(0.92); }
+.btn-close:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+.form { display: grid; grid-template-columns: 1.5fr 1fr 1fr auto; gap: var(--space-3);
+  align-items: end; padding: var(--space-4) var(--space-5); border-bottom: 1px solid var(--border-soft); }
+.field { display: grid; gap: 6px; }
+.field > label { font-size: 11px; font-weight: 700; color: var(--muted); }
+.control { height: 36px; width: 100%; padding: 0 10px; background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: var(--text-xs); font-weight: 500; }
+.control:hover { border-color: color-mix(in oklab, var(--fg) 26%, var(--border)); }
+.control:focus-visible { outline: none; border-color: var(--fg); box-shadow: var(--focus-ring); }
+.depth { display: flex; align-items: center; gap: var(--space-2); }
+.depth input[type=range] { flex: 1 1 auto; accent-color: var(--fg); }
+.depth output { font-family: var(--font-mono); font-size: var(--text-xs); width: 14px; text-align: right; }
+.hint-row { padding: 0 var(--space-5) var(--space-4); font-size: 11px; color: var(--muted); }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 36px; padding: 0 14px; font-size: var(--text-xs); font-weight: 600;
+  background: var(--surface); color: var(--fg); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); cursor: pointer; white-space: nowrap;
+  transition: background var(--motion-fast) var(--ease-standard), transform var(--motion-fast) var(--ease-standard); }
+.btn:hover { background: var(--hover); border-color: color-mix(in oklab, var(--fg) 26%, var(--border)); }
+.btn:active { background: var(--pressed); transform: scale(0.97); }
+.btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.btn[disabled] { background: var(--surface-warm); color: var(--meta); border-color: var(--border-soft); cursor: not-allowed; transform: none; }
+.btn-primary { background: var(--accent); color: var(--accent-on); border-color: var(--accent); height: 40px; padding: 0 18px; font-size: var(--text-sm); }
+.btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: var(--accent-on); }
+.btn-primary:active { background: var(--accent-active); border-color: var(--accent-active); }
+.btn-dark { background: var(--fg); color: var(--surface); border-color: var(--fg); }
+.btn-dark:hover { background: var(--fg-2); border-color: var(--fg-2); color: var(--surface); }
+.btn-dark[disabled] { background: var(--surface-warm); color: var(--meta); border-color: var(--border-soft); }
+
+.body { flex: 1 1 auto; overflow: auto; min-height: 210px; }
+table { width: 100%; border-collapse: separate; border-spacing: 0; }
+thead th { position: sticky; top: 0; z-index: 2; text-align: left; background: var(--surface);
+  border-bottom: 1px solid var(--border); font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--muted); padding: 8px var(--space-4); white-space: nowrap; }
+tbody td { height: 30px; padding: 0 var(--space-4); border-bottom: 1px solid var(--border-soft);
+  font-size: var(--text-xs); white-space: nowrap; }
+tbody tr:hover td { background: var(--hover); }
+tbody tr[aria-selected="true"] td { background: var(--sel); }
+.chain { font-family: var(--font-mono); color: var(--fg-2); }
+.chain .arrow { color: var(--meta); padding: 0 3px; }
+.tag { font-size: 10px; font-weight: 700; letter-spacing: 0.04em; color: var(--fg-2);
+  background: var(--surface-warm); border: 1px solid var(--border-soft); border-radius: 5px; padding: 2px 6px; }
+.cb { appearance: none; width: 15px; height: 15px; margin: 0; border: 1px solid var(--border);
+  border-radius: 4px; background: var(--surface); cursor: pointer; position: relative; vertical-align: middle; }
+.cb:hover { border-color: var(--fg); }
+.cb:checked { background: var(--fg); border-color: var(--fg); }
+.cb:checked::after { content: ""; position: absolute; inset: 0;
+  background: no-repeat center/9px 9px url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='white' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'><path d='M2 6.4 4.6 9 10 3'/></svg>"); }
+.cb:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+.state { display: grid; place-items: center; min-height: 240px; padding: var(--space-8); text-align: center; }
+.state-inner { max-width: 400px; display: grid; gap: var(--space-3); justify-items: center; }
+.state svg.big { width: 38px; height: 38px; stroke: var(--meta); fill: none; stroke-width: 1.4; }
+.state h2 { margin: 0; font-family: var(--font-display); font-size: var(--text-sm); font-weight: 700; }
+.state p { margin: 0; font-size: var(--text-xs); color: var(--muted); }
+.spin { width: 26px; height: 26px; border-radius: var(--radius-pill);
+  border: 2px solid color-mix(in oklab, var(--fg) 14%, var(--surface)); border-top-color: var(--fg);
+  animation: spin 700ms linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.track { height: 4px; width: 240px; border-radius: var(--radius-pill);
+  background: color-mix(in oklab, var(--fg) 10%, var(--surface)); overflow: hidden; }
+.bar { height: 100%; width: 0; background: var(--fg); transition: width 120ms linear; }
+
+.foot { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-5);
+  border-top: 1px solid var(--border); background: var(--surface-warm); }
+.foot .info { font-size: 11px; color: var(--muted); }
+.foot .info b { font-family: var(--font-mono); color: var(--fg); }
+
+.toasts { position: fixed; right: var(--space-4); bottom: var(--space-4); z-index: 90; display: grid; gap: var(--space-2); width: 316px; }
+.toast { display: flex; gap: 10px; padding: 11px 12px; background: var(--surface); border-radius: var(--radius-sm);
+  box-shadow: var(--elev-raised); align-items: flex-start; animation: slide-in var(--motion-base) var(--ease-standard); }
+@keyframes slide-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.toast.out { opacity: 0; transition: opacity var(--motion-base) var(--ease-standard); }
+.toast .txt { font-size: var(--text-xs); }
+.toast .txt em { display: block; font-style: normal; color: var(--muted); font-size: 11px; margin-top: 2px; }
+.toast[data-kind="success"] .icon { color: var(--success); }
+.toast[data-kind="error"] .icon { color: var(--danger); }
+.toast[data-kind="info"] .icon { color: var(--fg-2); }
+@media (prefers-reduced-motion: reduce) { * { animation-duration: 1ms !important; transition-duration: 1ms !important; } }
+</style>
+</head>
+<body>
+<svg class="sr" aria-hidden="true"><defs>
+<symbol id="i-cpu" viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="1.5"/><rect x="3.5" y="3.5" width="17" height="17" rx="2.5"/><path d="M10 3.5V1.6M14 3.5V1.6M10 22.4v-1.9M14 22.4v-1.9M3.5 10H1.6M3.5 14H1.6M22.4 10h-1.9M22.4 14h-1.9"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+<symbol id="i-link" viewBox="0 0 24 24"><path d="M9.6 14.4 14.4 9.6"/><path d="M12.6 7.4l1.6-1.6a3.4 3.4 0 0 1 4.8 4.8l-1.6 1.6"/><path d="M11.4 16.6l-1.6 1.6a3.4 3.4 0 0 1-4.8-4.8l1.6-1.6"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6"/><path d="m8.2 12.2 2.7 2.7 5-5.6"/></symbol>
+<symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6"/><path d="M12 7.8v5M12 16.1v.1"/></symbol>
+<symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6"/><path d="M12 11v5.2M12 7.9v.1"/></symbol>
+</defs></svg>
+
+<!-- ── dimmed workbench behind the dialog ─────────────────────── -->
+<div class="back" aria-hidden="true" data-od-id="workbench-backdrop">
+  <div class="back-tb">
+    <svg class="icon" style="width:22px;height:22px"><use href="#i-cpu"/></svg>
+    <span style="font-family:var(--font-display);font-weight:700;font-size:var(--text-sm)">MemScanner</span>
+    <div class="ghost" style="width:244px;margin-left:8px"></div>
+    <span class="spacer"></span><div class="ghost" style="width:96px"></div><div class="ghost" style="width:88px"></div>
+  </div>
+  <div class="back-body">
+    <div class="back-rail">
+      <div class="ghost lbl"></div><div class="ghost"></div>
+      <div class="ghost lbl"></div><div class="ghost"></div>
+      <div class="ghost lbl"></div><div class="ghost"></div>
+      <div class="ghost cta"></div>
+    </div>
+    <div class="back-main">
+      <div class="back-sec">扫描结果 · 4 条匹配</div>
+      <div class="back-rows">
+        <div class="back-row"><span>0x7FF6A1C4E230</span><span>318</span><span>412</span><span>INT32</span></div>
+        <div class="back-row hit"><span>0x7FF6A1C4E230</span><span>318</span><span>412</span><span>INT32</span></div>
+        <div class="back-row"><span>0x7FF6B22A0C10</span><span>318</span><span>412</span><span>INT32</span></div>
+        <div class="back-row"><span>0x7FF6C0741A88</span><span>318</span><span>412</span><span>INT32</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── pointer scan dialog ───────────────────────────────────── -->
+<div class="scrim">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="ttl" data-od-id="pointer-scan-modal">
+    <div class="modal-head">
+      <svg class="icon" style="margin-top:2px"><use href="#i-link"/></svg>
+      <div>
+        <h1 id="ttl">指针扫描</h1>
+        <p>为动态地址寻找稳定的指针路径。重启游戏后动态地址会失效，指针链能长期复用。</p>
+      </div>
+      <span class="spacer"></span>
+      <button class="btn-close" id="close" title="关闭"><svg class="icon"><use href="#i-x"/></svg><span class="sr">关闭</span></button>
+    </div>
+
+    <div class="form" data-od-id="pointer-scan-form">
+      <div class="field">
+        <label for="target">目标地址</label>
+        <input class="control mono" id="target" value="0x7FF6A1C4E230" data-od-id="input-target-address">
+      </div>
+      <div class="field">
+        <label for="depth">最大深度</label>
+        <div class="depth">
+          <input type="range" id="depth" min="1" max="7" value="5" data-od-id="input-max-depth">
+          <output id="depthOut" for="depth">5</output>
+        </div>
+      </div>
+      <div class="field">
+        <label for="offset">最大偏移量</label>
+        <input class="control mono" id="offset" value="4096" inputmode="numeric" data-od-id="input-max-offset">
+      </div>
+      <button class="btn btn-primary" id="start" data-od-id="cta-start-pointer-scan">开始扫描</button>
+    </div>
+    <p class="hint-row" id="cost">深度 5 · 偏移 4096 — 预计遍历约 1.8 万个候选指针，耗时 6–20 秒。深度越大命中越多，但误报也越多。</p>
+
+    <div class="body" id="body">
+      <div class="state" id="idle" data-od-id="pointer-idle-state">
+        <div class="state-inner">
+          <svg class="big"><use href="#i-link"/></svg>
+          <h2>尚未开始扫描</h2>
+          <p>确认目标地址后点击「开始扫描」。建议先把结果集过滤到 10 条以内，再对确认有效的地址做指针扫描。</p>
+        </div>
+      </div>
+
+      <div class="state" id="loading" hidden data-od-id="pointer-loading-state">
+        <div class="state-inner">
+          <div class="spin"></div>
+          <h2 id="loadTitle">正在遍历模块指针…</h2>
+          <div class="track"><div class="bar" id="bar"></div></div>
+          <p class="mono" id="loadMeta">深度 1/5 · 已检查 0 个候选</p>
+        </div>
+      </div>
+
+      <table id="tbl" hidden>
+        <thead><tr>
+          <th style="width:44px"><span class="sr">选择</span></th>
+          <th style="width:230px">基地址</th><th>偏移链</th>
+          <th style="width:196px">最终解析地址</th><th style="width:74px">深度</th>
+        </tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+
+    <div class="foot">
+      <span class="info" id="footInfo">目标 <b>0x7FF6A1C4E230</b> · 尚无结果</span>
+      <span class="spacer"></span>
+      <button class="btn" id="back">返回工作台</button>
+      <button class="btn btn-dark" id="add" disabled data-od-id="cta-add-selected">添加选中到地址表</button>
+    </div>
+  </div>
+</div>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const hex = (n, w = 12) => n.toString(16).toUpperCase().padStart(w, '0');
+const MODULES = ['HollowKnight.exe', 'UnityPlayer.dll', 'GameAssembly.dll', 'mono-2.0-bdwgc.dll'];
+let results = [];
+
+function toast(kind, title, sub) {
+  const el = document.createElement('div');
+  el.className = 'toast'; el.dataset.kind = kind;
+  const icon = kind === 'success' ? 'i-check' : kind === 'error' ? 'i-alert' : 'i-info';
+  el.innerHTML = `<svg class="icon"><use href="#${icon}"/></svg><div class="txt">${title}${sub ? `<em>${sub}</em>` : ''}</div>`;
+  $('toasts').append(el);
+  setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 220); }, 3200);
+}
+
+function syncCost() {
+  const d = Number($('depth').value), off = Number($('offset').value.replace(/[^\d]/g, '')) || 0;
+  $('depthOut').textContent = d;
+  const cand = Math.round(d * off * 0.9 / 1000);
+  $('cost').textContent = `深度 ${d} · 偏移 ${off} — 预计遍历约 ${cand < 10 ? (cand * 1000).toLocaleString('zh-CN') + ' 个' : cand + ' 万个'}候选指针，耗时 ${Math.max(2, d * 2)}–${d * 5} 秒。深度越大命中越多，但误报也越多。`;
+}
+$('depth').oninput = syncCost;
+$('offset').oninput = syncCost;
+syncCost();
+
+$('start').onclick = () => {
+  const t = $('target').value.trim().replace(/^0x/i, '');
+  if (!/^[0-9a-f]{6,16}$/i.test(t)) { toast('error', '目标地址无效', '请输入十六进制地址，例如 0x7FF6A1C4E230'); $('target').focus(); return; }
+  const depth = Number($('depth').value);
+  $('idle').hidden = true; $('tbl').hidden = true; $('loading').hidden = false;
+  $('start').disabled = true; $('add').disabled = true;
+  let pct = 0, checked = 0;
+  const total = depth * Number($('offset').value.replace(/[^\d]/g, '') || 4096) * 0.9;
+  const timer = setInterval(() => {
+    pct = Math.min(100, pct + 3 + Math.random() * 6);
+    checked = Math.floor(total * pct / 100);
+    $('bar').style.width = pct + '%';
+    $('loadMeta').textContent = `深度 ${Math.min(depth, Math.ceil(depth * pct / 100))}/${depth} · 已检查 ${checked.toLocaleString('zh-CN')} 个候选`;
+    if (pct >= 100) { clearInterval(timer); finish(parseInt(t, 16), depth); }
+  }, 110);
+};
+
+function finish(target, depth) {
+  const n = 6 + Math.floor(Math.random() * 6);
+  results = Array.from({ length: n }, (_, i) => {
+    const d = 1 + Math.floor(Math.random() * depth);
+    const mod = MODULES[i % MODULES.length];
+    const baseOff = Math.floor(Math.random() * 0xFFFFF / 8) * 8;
+    const chain = Array.from({ length: d }, () => Math.floor(Math.random() * 512 / 8) * 8);
+    return { id: i, mod, baseOff, chain, target, depth: d, stable: i < 3 };
+  }).sort((a, b) => a.depth - b.depth);
+
+  $('loading').hidden = true; $('tbl').hidden = false; $('start').disabled = false;
+  $('rows').innerHTML = results.map(r => `
+    <tr data-id="${r.id}" aria-selected="false">
+      <td><input class="cb" type="checkbox" aria-label="选择 ${r.mod}+0x${hex(r.baseOff, 6)}"></td>
+      <td class="mono">${r.mod}+0x${hex(r.baseOff, 6)}</td>
+      <td class="chain">${r.chain.map(c => '+0x' + hex(c, 2)).join('<span class="arrow">→</span>')}</td>
+      <td class="mono">0x${hex(r.target)}</td>
+      <td><span class="tag">${r.depth} 级</span></td>
+    </tr>`).join('');
+  $('footInfo').innerHTML = `目标 <b>0x${hex(target)}</b> · ${n} 条指针路径 · 建议优先选择级数最少的一条`;
+  toast('success', '指针扫描完成', `${n} 条路径 · 最短 ${results[0].depth} 级偏移链`);
+}
+
+$('rows').addEventListener('change', () => {
+  [...$('rows').rows].forEach(tr => tr.setAttribute('aria-selected', String(tr.querySelector('.cb').checked)));
+  const n = $('rows').querySelectorAll('.cb:checked').length;
+  $('add').disabled = n === 0;
+  $('add').textContent = n ? `添加 ${n} 条到地址表` : '添加选中到地址表';
+});
+$('rows').addEventListener('click', (e) => {
+  if (e.target.classList.contains('cb')) return;
+  const tr = e.target.closest('tr'); if (!tr) return;
+  const cb = tr.querySelector('.cb'); cb.checked = !cb.checked;
+  cb.dispatchEvent(new Event('change', { bubbles: true }));
+});
+$('add').onclick = () => {
+  const n = $('rows').querySelectorAll('.cb:checked').length;
+  toast('success', `已添加 ${n} 条指针到地址表`, '描述默认取「指针路径 N」，可双击重命名');
+  setTimeout(() => location.href = 'scan-workbench.html', 900);
+};
+$('back').onclick = () => location.href = 'scan-workbench.html';
+$('close').onclick = () => location.href = 'scan-workbench.html';
+addEventListener('keydown', (e) => { if (e.key === 'Escape') location.href = 'scan-workbench.html'; });
+</script>
+</body>
+</html>
