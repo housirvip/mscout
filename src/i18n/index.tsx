@@ -27,7 +27,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     let msg: string = locales[locale][key] ?? key;
     if (vars) {
       for (const [k, v] of Object.entries(vars)) {
-        msg = msg.replace(`{${k}}`, String(v));
+        msg = msg.replaceAll(`{${k}}`, String(v));
       }
     }
     return msg;
