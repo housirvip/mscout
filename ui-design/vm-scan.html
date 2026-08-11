@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MemScanner — VM 扫描</title>
+<title>MScout — VM 扫描</title>
 <style>
 :root {
   --bg: #ffffff;
@@ -244,7 +244,7 @@ tbody tr[aria-selected="true"] td:first-child { box-shadow: inset 2px 0 0 var(--
 <div class="back" aria-hidden="true" data-od-id="workbench-backdrop">
   <div class="back-tb">
     <svg class="icon" style="width:22px;height:22px"><use href="#i-cpu"/></svg>
-    <span style="font-family:var(--font-display);font-weight:700;font-size:var(--text-sm)">MemScanner</span>
+    <span style="font-family:var(--font-display);font-weight:700;font-size:var(--text-sm)">MScout</span>
     <div class="ghost" style="width:244px;margin-left:8px;border-style:dashed"></div>
     <span class="spacer"></span><div class="ghost" style="width:96px"></div><div class="ghost" style="width:88px"></div>
   </div>
@@ -295,11 +295,11 @@ tbody tr[aria-selected="true"] td:first-child { box-shadow: inset 2px 0 0 var(--
           <div class="state-inner">
             <svg class="big"><use href="#i-vm"/></svg>
             <h2 id="emptyTitle">未检测到可用的虚拟机</h2>
-            <p>MemScanner 通过宿主上的虚拟机监控进程读取客户机物理内存，请确认：</p>
+            <p>MScout 通过宿主上的虚拟机监控进程读取客户机物理内存，请确认：</p>
             <ul>
               <li>虚拟机已启动并处于运行中状态（挂起状态无法读取内存）</li>
               <li>宿主上存在 vmware-vmx / vmmem 等监控进程</li>
-              <li>MemScanner 以管理员或 root 权限运行</li>
+              <li>MScout 以管理员或 root 权限运行</li>
             </ul>
             <button class="btn" id="emptyRetry">重新检测</button>
           </div>

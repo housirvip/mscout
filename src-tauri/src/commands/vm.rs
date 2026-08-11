@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use parking_lot::Mutex;
 
-use mem_scanner_core::{
+use mscout_core::{
     platform::ProcessMemory,
     vm::{
         vmware::{VmwareConnector, VmwareProcess},
@@ -27,7 +27,7 @@ pub fn list_vms() -> Result<Vec<VmInfo>, String> {
 
     #[cfg(target_os = "windows")]
     {
-        use mem_scanner_core::vm::hyperv::HyperVConnector;
+        use mscout_core::vm::hyperv::HyperVConnector;
         if let Ok(mut hyperv_vms) = HyperVConnector::detect_vms() {
             vms.append(&mut hyperv_vms);
         }
