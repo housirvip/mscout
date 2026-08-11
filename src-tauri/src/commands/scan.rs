@@ -40,12 +40,8 @@ fn filter_regions(regions: Vec<MemoryRegion>, filter: &RegionFilter) -> Vec<Memo
             if filter.skip_executable && r.executable {
                 return false;
             }
-            if filter.skip_mapped_files
-                && !r.info.is_empty()
-                && r.info != "[heap]"
-                && r.info != "[stack]"
-                && !r.info.starts_with('[')
-            {
+            // Skip mapped files but preserve system regions like [heap], [stack], [vdso]
+            if filter.skip_mapped_files && !r.info.is_empty() && !r.info.starts_with('[') {
                 return false;
             }
             true
@@ -63,13 +59,17 @@ pub fn first_scan(
     channel: Channel<ScanProgress>,
     state: State<'_, Mutex<AppState>>,
 ) -> Result<ScanSummary, String> {
-    let mut app_state = state.lock();
-    let process = app_state
-        .process
-        .as_ref()
-        .ok_or_else(|| "No process attached".to_string())?;
+    // Brief lock: get process and regions
+    let (process, regions) = {
+        let app_state = state.lock();
+        let process = app_state
+            .process
+            .clone()
+            .ok_or_else(|| "No process attached".to_string())?;
+        let regions = process.regions().map_err(|e| e.to_string())?;
+        (process, regions)
+    };
 
-    let regions = process.regions().map_err(|e| e.to_string())?;
     let regions = if let Some(filter) = &region_filter {
         filter_regions(regions, filter)
     } else {
@@ -87,6 +87,7 @@ pub fn first_scan(
         total_regions: regions.len() as u32,
     });
 
+    // Scan WITHOUT holding the lock
     let session = ScanSession::first_scan(
         process.as_ref(),
         value_type,
@@ -106,9 +107,12 @@ pub fn first_scan(
         total_regions: regions.len() as u32,
     });
 
+    // Brief lock: store session
     let match_count = session.result_count();
-    app_state.scan_session = Some(session);
-
+    {
+        let mut app_state = state.lock();
+        app_state.scan_session = Some(session);
+    }
     Ok(ScanSummary { match_count })
 }
 
@@ -119,22 +123,31 @@ pub fn next_scan(
     value2: Option<ScanValue>,
     state: State<'_, Mutex<AppState>>,
 ) -> Result<ScanSummary, String> {
-    let mut app_state = state.lock();
-    let process = app_state
-        .process
-        .clone()
-        .ok_or_else(|| "No process attached".to_string())?;
+    // Brief lock: take process and session out
+    let (process, mut session) = {
+        let mut app_state = state.lock();
+        let process = app_state
+            .process
+            .clone()
+            .ok_or_else(|| "No process attached".to_string())?;
+        let session = app_state
+            .scan_session
+            .take()
+            .ok_or_else(|| "No scan session active".to_string())?;
+        (process, session)
+    };
 
-    let session = app_state
-        .scan_session
-        .as_mut()
-        .ok_or_else(|| "No scan session active".to_string())?;
-
+    // Scan WITHOUT holding the lock
     session
         .next_scan(process.as_ref(), condition, value, value2)
         .map_err(|e| e.to_string())?;
 
+    // Brief lock: put session back
     let match_count = session.result_count();
+    {
+        let mut app_state = state.lock();
+        app_state.scan_session = Some(session);
+    }
     Ok(ScanSummary { match_count })
 }
 
