@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useToast } from "./Toast";
-import { useI18n } from "../i18n";
+import { useI18n, MessageKey } from "../i18n";
 
 interface VmInfo {
   id: string;
@@ -95,12 +95,16 @@ export function VmDialog({ onAttach, onClose }: Props) {
     setFilter("");
   }
 
-  function handleAttachGuest() {
-    const proc = guestProcesses.find((p) => p.pid === selectedGuest);
+  async function handleAttachGuest(pid?: number) {
+    const targetPid = pid ?? selectedGuest;
+    const proc = guestProcesses.find((p) => p.pid === targetPid);
     if (!proc || !selectedVm) return;
-    invoke("attach_vm_process", { vmPid: selectedVm.pid, guestPid: proc.pid })
-      .then(() => { onAttach(proc.pid, proc.name); })
-      .catch((e) => showToast(String(e), "error"));
+    try {
+      await invoke("attach_vm_process", { vmPid: selectedVm.pid, guestPid: proc.pid });
+      onAttach(proc.pid, proc.name);
+    } catch (e) {
+      showToast(String(e), "error");
+    }
   }
 
   const filteredVms = vms.filter((vm) =>
@@ -131,7 +135,7 @@ export function VmDialog({ onAttach, onClose }: Props) {
           </svg>
           <div>
             <h2>{t("vm.title")}</h2>
-            <p>直接读取虚拟机的物理内存，无需在客户机内安装任何组件。</p>
+            <p>{t("vm.subtitle" as MessageKey)}</p>
           </div>
           <span className="spacer"></span>
           <button className="btn-close" onClick={onClose}>
@@ -179,7 +183,7 @@ export function VmDialog({ onAttach, onClose }: Props) {
                   key={tp}
                   className="btn"
                   aria-pressed={typeFilter === tp}
-                  onClick={() => setTypeFilter(tp)}
+                  onClick={() => { setTypeFilter(tp); setSelectedVm(null); }}
                   style={{
                     height: 28, fontSize: 11,
                     background: typeFilter === tp ? "var(--fg)" : undefined,
@@ -187,7 +191,7 @@ export function VmDialog({ onAttach, onClose }: Props) {
                     borderColor: typeFilter === tp ? "var(--fg)" : undefined,
                   }}
                 >
-                  {tp === "all" ? "全部" : tp === "QEMU" ? "QEMU / KVM" : tp}
+                  {tp === "all" ? t("vm.all" as MessageKey) : tp === "QEMU" ? "QEMU / KVM" : tp}
                 </button>
               ))}
               <span className="spacer"></span>
@@ -196,7 +200,7 @@ export function VmDialog({ onAttach, onClose }: Props) {
                   <path d="M20 12a8 8 0 1 1-2.6-5.9" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                   <path d="M20 4v4.6h-4.6" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
-                重新检测
+                {t("vm.refresh")}
               </button>
             </div>
 
@@ -206,7 +210,7 @@ export function VmDialog({ onAttach, onClose }: Props) {
                 <div className="empty" style={{ minHeight: 160 }}>
                   <div className="empty-inner">
                     <div className="spin"></div>
-                    <p>正在检测虚拟机…</p>
+                    <p>{t("vm.detecting" as MessageKey)}</p>
                   </div>
                 </div>
               ) : filteredVms.length === 0 ? (
@@ -270,7 +274,7 @@ export function VmDialog({ onAttach, onClose }: Props) {
                 className="control search-in"
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
-                placeholder="在客户机进程中按名称或 PID 过滤…"
+                placeholder={t("vm.filterHint" as MessageKey)}
                 autoFocus
               />
             </div>
@@ -280,14 +284,14 @@ export function VmDialog({ onAttach, onClose }: Props) {
                 <div className="empty" style={{ minHeight: 160 }}>
                   <div className="empty-inner">
                     <div className="spin"></div>
-                    <h2>正在扫描客户机内核…</h2>
-                    <p className="mono" style={{ color: "var(--muted)" }}>定位 KPCR 与 EPROCESS 链表</p>
+                    <h2>{t("vm.scanningKernel" as MessageKey)}</h2>
+                    <p className="mono" style={{ color: "var(--muted)" }}>{t("vm.scanningDesc" as MessageKey)}</p>
                   </div>
                 </div>
               ) : filteredGuests.length === 0 ? (
                 <div className="empty" style={{ minHeight: 120 }}>
                   <div className="empty-inner">
-                    <p>没有匹配的客户机进程。</p>
+                    <p>{t("vm.noMatchGuest" as MessageKey)}</p>
                   </div>
                 </div>
               ) : (
@@ -295,7 +299,7 @@ export function VmDialog({ onAttach, onClose }: Props) {
                   <thead>
                     <tr>
                       <th style={{ width: 96 }}>PID</th>
-                      <th>进程名</th>
+                      <th>{t("vm.colName" as MessageKey)}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -304,7 +308,7 @@ export function VmDialog({ onAttach, onClose }: Props) {
                         key={p.pid}
                         className={selectedGuest === p.pid ? "sel" : undefined}
                         onClick={() => setSelectedGuest(p.pid)}
-                        onDoubleClick={() => { setSelectedGuest(p.pid); handleAttachGuest(); }}
+                        onDoubleClick={() => { setSelectedGuest(p.pid); handleAttachGuest(p.pid); }}
                       >
                         <td className="mono">{p.pid}</td>
                         <td>{p.name}</td>
@@ -321,13 +325,13 @@ export function VmDialog({ onAttach, onClose }: Props) {
         <div className="modal-foot">
           <span style={{ fontSize: 11, color: "var(--muted)" }}>
             {step === 1
-              ? `已检测到 ${filteredVms.length} 台虚拟机`
-              : `${selectedVm?.name} · ${filteredGuests.length} 个进程`
+              ? t("vm.vmCount" as MessageKey, { count: filteredVms.length })
+              : `${selectedVm?.name} · ${t("vm.guestCount" as MessageKey, { count: filteredGuests.length })}`
             }
           </span>
           <span className="spacer"></span>
           {step === 2 && (
-            <button className="btn" onClick={handleBack}>返回上一步</button>
+            <button className="btn" onClick={handleBack}>{t("vm.backStep" as MessageKey)}</button>
           )}
           <button className="btn" onClick={onClose}>{t("vm.cancel")}</button>
           {step === 1 ? (
@@ -342,7 +346,7 @@ export function VmDialog({ onAttach, onClose }: Props) {
             <button
               className="btn btn-solid-dark"
               disabled={selectedGuest === null}
-              onClick={handleAttachGuest}
+              onClick={() => handleAttachGuest()}
             >
               {t("vm.attach")}
             </button>

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { useI18n } from "../i18n";
+import { useI18n, MessageKey } from "../i18n";
 import { useToast } from "./Toast";
 
 export interface AddressEntry {
@@ -52,6 +52,7 @@ export function AddressTable({ externalEntries }: Props) {
   const [labelDraft, setLabelDraft] = useState("");
   const [editingValue, setEditingValue] = useState<number | null>(null);
   const [valueDraft, setValueDraft] = useState("");
+  const localLabelsRef = useRef<Map<number, string>>(new Map());
   const failCountRef = useRef(0);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
@@ -65,25 +66,25 @@ export function AddressTable({ externalEntries }: Props) {
     try {
       const data = await invoke<FrozenEntry[]>("list_frozen");
       if (mountedRef.current) {
-        setEntries(data);
+        setEntries(data.map((e) => ({
+          ...e,
+          label: localLabelsRef.current.get(e.address) ?? e.label,
+        })));
         failCountRef.current = 0;
       }
     } catch {
       failCountRef.current++;
-      if (failCountRef.current >= 3 && mountedRef.current) {
-        showToast(t("toast.writeFailed", { error: "Lost connection" }), "error");
-      }
     }
-  }, [showToast, t]);
+  }, []);
 
   // Poll with setTimeout to avoid overlapping
   useEffect(() => {
     let active = true;
     async function poll() {
-      if (failCountRef.current >= 3) return;
       await refreshValues();
       if (active) {
-        pollRef.current = setTimeout(poll, 500);
+        const delay = failCountRef.current >= 3 ? 5000 : 500;
+        pollRef.current = setTimeout(poll, delay);
       }
     }
     poll();
@@ -137,8 +138,8 @@ export function AddressTable({ externalEntries }: Props) {
   }
 
   function commitLabel() {
-    // Label edits are local-only (no backend command for rename)
     if (editingLabel !== null) {
+      localLabelsRef.current.set(editingLabel, labelDraft);
       setEntries((prev) =>
         prev.map((e) =>
           e.address === editingLabel ? { ...e, label: labelDraft } : e
@@ -192,7 +193,7 @@ export function AddressTable({ externalEntries }: Props) {
               <th style={{ width: 92 }}>{t("addr.colType")}</th>
               <th style={{ width: 128 }}>{t("addr.colValue")}</th>
               <th style={{ width: 40 }}>
-                <span className="sr">操作</span>
+                <span className="sr">{t("addr.colAction" as MessageKey)}</span>
               </th>
             </tr>
           </thead>
@@ -236,7 +237,7 @@ export function AddressTable({ externalEntries }: Props) {
                       onChange={(e) => setValueDraft(e.target.value)}
                       onBlur={() => commitValue(entry.address, entry.value)}
                       onKeyDown={(e) => {
-                        if (e.key === "Enter") commitValue(entry.address, entry.value);
+                        if (e.key === "Enter") e.currentTarget.blur();
                         if (e.key === "Escape") setEditingValue(null);
                       }}
                       autoFocus
@@ -249,7 +250,7 @@ export function AddressTable({ externalEntries }: Props) {
                   <button
                     className="row-del"
                     onClick={() => handleDelete(entry.address)}
-                    title="删除"
+                    title={t("addr.deleteTitle" as MessageKey)}
                   >
                     <svg className="icon" style={{ width: 14, height: 14 }} viewBox="0 0 24 24" aria-hidden="true">
                       <line x1="18" y1="6" x2="6" y2="18" />

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { save, open } from "@tauri-apps/plugin-dialog";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { useI18n } from "./i18n";
+import { useI18n, MessageKey } from "./i18n";
 import { ToastProvider, useToast } from "./components/Toast";
 import { ScanPanel } from "./components/ScanPanel";
 import { ResultsTable } from "./components/ResultsTable";
@@ -24,7 +24,7 @@ interface CheatTable {
   process_name: string;
   entries: Array<{
     label: string;
-    address: { Static: number } | unknown;
+    address: { Static: number };
     value_type: string;
     frozen: boolean;
     freeze_value: Record<string, unknown> | null;
@@ -82,7 +82,7 @@ function AppContent() {
       await invoke("save_table", { path, table });
       showToast(t("toast.saved"), "success");
     } catch (e) {
-      showToast(`${t("toast.scanFailed", { error: String(e) })}`, "error");
+      showToast(t("toast.saveFailed" as MessageKey, { error: String(e) }), "error");
     }
   }, [processName, showToast, t]);
 
@@ -94,12 +94,7 @@ function AppContent() {
       if (!path) return;
       const table = await invoke<CheatTable>("load_table", { path });
       for (const entry of table.entries) {
-        const address =
-          typeof entry.address === "object" &&
-          entry.address !== null &&
-          "Static" in (entry.address as Record<string, unknown>)
-            ? ((entry.address as Record<string, unknown>).Static as number)
-            : 0;
+        const address = entry.address.Static;
         await invoke("add_frozen", {
           address,
           value: entry.freeze_value ?? { I32: 0 },
@@ -108,7 +103,7 @@ function AppContent() {
       }
       showToast(t("toast.loaded"), "success");
     } catch (e) {
-      showToast(`${t("toast.scanFailed", { error: String(e) })}`, "error");
+      showToast(t("toast.loadFailed" as MessageKey, { error: String(e) }), "error");
     }
   }, [showToast, t]);
 
@@ -197,10 +192,6 @@ function AppContent() {
     setMatchCount(count);
   }, []);
 
-  const handleReset = useCallback(() => {
-    setMatchCount(0);
-    setHasSession(false);
-  }, []);
 
   return (
     <div className={`app${alwaysOnTop ? " compact" : ""}`}>
@@ -310,7 +301,6 @@ function AppContent() {
           onNextScan={handleNextScanDone}
           onUndo={handleUndoDone}
           onValueTypeChange={setCurrentValueType}
-          onReset={handleReset}
           onPickProcess={() => setShowProcessList(true)}
         />
 
@@ -330,7 +320,7 @@ function AppContent() {
       </div>
 
       {/* ── hex drawer ── */}
-      {showHexDrawer && memViewAddr !== null && (
+      {memViewAddr !== null && (
         <MemoryViewer
           address={memViewAddr}
           open={showHexDrawer}

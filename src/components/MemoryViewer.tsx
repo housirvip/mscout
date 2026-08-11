@@ -24,6 +24,7 @@ export function MemoryViewer({ address, open, onClose }: Props) {
     if (address !== null) {
       setBaseAddress(address);
       setGotoInput(address.toString(16).toUpperCase());
+      setBytes([]);
     }
   }, [address]);
 
@@ -38,7 +39,9 @@ export function MemoryViewer({ address, open, onClose }: Props) {
         setBytes(result.bytes);
       }
     } catch {
-      // Silently handle read failures during polling
+      if (mountedRef.current) {
+        setBytes([]);
+      }
     }
   }, [baseAddress, open, address, SIZE]);
 

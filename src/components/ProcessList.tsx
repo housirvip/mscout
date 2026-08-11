@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useToast } from "./Toast";
-import { useI18n } from "../i18n";
+import { useI18n, MessageKey } from "../i18n";
 
 interface ProcessInfo {
   pid: number;
@@ -51,6 +51,9 @@ export function ProcessList({ onAttach, onClose }: Props) {
       String(p.pid).includes(filter)
   );
 
+  // Reset selection when filter changes
+  useEffect(() => { setSelected(null); }, [filter]);
+
   const handleAttach = useCallback(() => {
     const proc = processes.find((p) => p.pid === selected);
     if (proc) onAttach(proc.pid, proc.name);
@@ -69,7 +72,7 @@ export function ProcessList({ onAttach, onClose }: Props) {
         <div className="modal-head">
           <div>
             <h2>{t("proc.title")}</h2>
-            <p>双击一行，或选中后点击「附加」。</p>
+            <p>{t("proc.doubleClickHint" as MessageKey)}</p>
           </div>
           <span className="spacer"></span>
           <button className="btn-close" onClick={onClose}>
@@ -98,12 +101,12 @@ export function ProcessList({ onAttach, onClose }: Props) {
         <div className="modal-body">
           {loading ? (
             <div className="empty" style={{ minHeight: 160 }}>
-              <div className="empty-inner"><p>加载中…</p></div>
+              <div className="empty-inner"><p>{t("proc.loading" as MessageKey)}</p></div>
             </div>
           ) : filtered.length === 0 ? (
             <div className="empty" style={{ minHeight: 120 }}>
               <div className="empty-inner">
-                <p>{processes.length === 0 ? "未找到进程。" : "没有匹配的进程。"}</p>
+                <p>{processes.length === 0 ? t("proc.notFound" as MessageKey) : t("proc.noMatch" as MessageKey)}</p>
               </div>
             </div>
           ) : (
@@ -111,7 +114,7 @@ export function ProcessList({ onAttach, onClose }: Props) {
               <thead>
                 <tr>
                   <th style={{ width: 86 }}>PID</th>
-                  <th>进程名</th>
+                  <th>{t("proc.colName" as MessageKey)}</th>
                 </tr>
               </thead>
               <tbody>
@@ -133,7 +136,7 @@ export function ProcessList({ onAttach, onClose }: Props) {
 
         {/* Footer */}
         <div className="modal-foot">
-          <span className="count">{filtered.length} 个进程</span>
+          <span className="count">{t("proc.count" as MessageKey, { count: filtered.length })}</span>
           <div className="actions">
             <button className="btn" onClick={onClose}>{t("proc.cancel")}</button>
             <button

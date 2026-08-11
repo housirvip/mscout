@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 
 export interface MenuItemDef {
   icon?: string;
@@ -19,6 +19,7 @@ interface Props {
 
 export function ContextMenu({ x, y, items, onClose }: Props) {
   const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ x, y });
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -37,15 +38,21 @@ export function ContextMenu({ x, y, items, onClose }: Props) {
     };
   }, [onClose]);
 
-  // Adjust position to stay within viewport
-  const adjustedX = Math.min(x, window.innerWidth - 230);
-  const adjustedY = Math.min(y, window.innerHeight - items.length * 36 - 20);
+  // Measure actual dimensions and clamp to viewport
+  useEffect(() => {
+    if (ref.current) {
+      const rect = ref.current.getBoundingClientRect();
+      const nx = Math.min(x, window.innerWidth - rect.width - 8);
+      const ny = Math.min(y, window.innerHeight - rect.height - 8);
+      setPos({ x: Math.max(0, nx), y: Math.max(0, ny) });
+    }
+  }, [x, y]);
 
   return (
     <div
       ref={ref}
       className="ctx"
-      style={{ left: adjustedX, top: adjustedY }}
+      style={{ left: pos.x, top: pos.y }}
     >
       {items.map((item, i) =>
         item.separator ? (

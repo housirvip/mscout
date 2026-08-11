@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useToast } from "./Toast";
-import { useI18n } from "../i18n";
+import { useI18n, type MessageKey } from "../i18n";
 
 interface PointerChain {
   base_address: number;
@@ -27,7 +27,6 @@ export function PointerScanDialog({ targetAddress, onClose, onAddToTable }: Prop
   const [maxDepth, setMaxDepth] = useState(5);
   const [maxOffset, setMaxOffset] = useState(4096);
   const [results, setResults] = useState<ResultRow[]>([]);
-  const [scanning, setScanning] = useState(false);
   const [state, setState] = useState<"idle" | "loading" | "done">("idle");
   const mountedRef = useRef(true);
 
@@ -47,7 +46,7 @@ export function PointerScanDialog({ targetAddress, onClose, onAddToTable }: Prop
   async function handleScan() {
     const trimmed = target.replace(/^0x/i, "").trim();
     if (!trimmed) {
-      showToast("请输入目标地址", "error");
+      showToast(t("ptr.inputHint" as MessageKey), "error");
       return;
     }
     const addr = parseInt(trimmed, 16);
@@ -56,7 +55,6 @@ export function PointerScanDialog({ targetAddress, onClose, onAddToTable }: Prop
       return;
     }
 
-    setScanning(true);
     setState("loading");
     setResults([]);
 
@@ -68,24 +66,24 @@ export function PointerScanDialog({ targetAddress, onClose, onAddToTable }: Prop
       });
       if (!mountedRef.current) return;
 
-      // Resolve each chain
-      const rows: ResultRow[] = [];
-      for (const chain of chains) {
-        let resolved: number | null = null;
-        try {
-          resolved = await invoke<number | null>("resolve_pointer_cmd", { chain });
-        } catch { /* ignore resolution failures */ }
-        if (!mountedRef.current) return;
-        rows.push({ chain, resolved, selected: false });
-      }
+      // Resolve all chains in parallel
+      const rows: ResultRow[] = await Promise.all(
+        chains.map(async (chain): Promise<ResultRow> => {
+          let resolved: number | null = null;
+          try {
+            resolved = await invoke<number | null>("resolve_pointer_cmd", { chain });
+          } catch { /* ignore resolution failures */ }
+          return { chain, resolved, selected: false };
+        })
+      );
+      if (!mountedRef.current) return;
+
       setResults(rows);
       setState("done");
     } catch (e) {
       if (!mountedRef.current) return;
       showToast(t("toast.scanFailed", { error: String(e) }), "error");
       setState("idle");
-    } finally {
-      if (mountedRef.current) setScanning(false);
     }
   }
 
@@ -102,7 +100,7 @@ export function PointerScanDialog({ targetAddress, onClose, onAddToTable }: Prop
       onAddToTable?.(row.resolved!, label);
     }
     if (selected.length > 0) {
-      showToast(`已添加 ${selected.length} 条指针链`, "success");
+      showToast(t("ptr.added" as MessageKey, { count: selected.length }), "success");
     }
   }
 
@@ -126,7 +124,7 @@ export function PointerScanDialog({ targetAddress, onClose, onAddToTable }: Prop
           </svg>
           <div>
             <h2>{t("ptr.title")}</h2>
-            <p>为动态地址寻找稳定的指针路径。重启后动态地址失效，指针链能长期复用。</p>
+            <p>{t("ptr.emptyHint" as MessageKey)}</p>
           </div>
           <span className="spacer"></span>
           <button className="btn-close" onClick={onClose}>
@@ -169,8 +167,11 @@ export function PointerScanDialog({ targetAddress, onClose, onAddToTable }: Prop
               <input
                 id="ptr-offset"
                 className="control mono"
+                type="number"
+                min={1}
+                max={65536}
                 value={maxOffset}
-                onChange={(e) => setMaxOffset(Number(e.target.value) || 0)}
+                onChange={(e) => setMaxOffset(Math.max(1, Math.min(65536, Number(e.target.value) || 1)))}
                 inputMode="numeric"
               />
             </div>
@@ -178,16 +179,16 @@ export function PointerScanDialog({ targetAddress, onClose, onAddToTable }: Prop
           <button
             className="btn btn-primary"
             onClick={handleScan}
-            disabled={scanning}
+            disabled={state === "loading"}
             style={{ marginTop: "var(--space-3)" }}
           >
-            {scanning ? "扫描中…" : t("ptr.start")}
+            {state === "loading" ? t("ptr.scanning" as MessageKey) : t("ptr.start")}
           </button>
         </div>
 
         {/* Hint */}
         <p style={{ padding: "var(--space-2) var(--space-5)", margin: 0, fontSize: 11, color: "var(--muted)" }}>
-          深度 {maxDepth} · 偏移 {maxOffset} — 深度越大命中越多，但误报也越多。
+          {t("ptr.maxDepthLabel" as MessageKey, { depth: maxDepth })} · {t("ptr.maxOffset")} {maxOffset}
         </p>
 
         {/* Body */}
@@ -200,8 +201,8 @@ export function PointerScanDialog({ targetAddress, onClose, onAddToTable }: Prop
                   <path d="M12.6 7.4l1.6-1.6a3.4 3.4 0 0 1 4.8 4.8l-1.6 1.6" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                   <path d="M11.4 16.6l-1.6 1.6a3.4 3.4 0 0 1-4.8-4.8l1.6-1.6" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                 </svg>
-                <h2 style={{ marginTop: 12 }}>尚未开始扫描</h2>
-                <p>确认目标地址后点击「开始扫描」。</p>
+                <h2 style={{ marginTop: 12 }}>{t("ptr.notStarted" as MessageKey)}</h2>
+                <p>{t("ptr.emptyHint" as MessageKey)}</p>
               </div>
             </div>
           )}
@@ -210,8 +211,8 @@ export function PointerScanDialog({ targetAddress, onClose, onAddToTable }: Prop
             <div className="empty" style={{ minHeight: 200 }}>
               <div className="empty-inner">
                 <div className="spin"></div>
-                <h2 style={{ marginTop: 12 }}>正在遍历模块指针…</h2>
-                <p className="mono" style={{ color: "var(--muted)" }}>深度 1/{maxDepth}</p>
+                <h2 style={{ marginTop: 12 }}>{t("ptr.resolving" as MessageKey)}</h2>
+                <p className="mono" style={{ color: "var(--muted)" }}>{t("ptr.maxDepthLabel" as MessageKey, { depth: maxDepth })}</p>
               </div>
             </div>
           )}
@@ -219,7 +220,7 @@ export function PointerScanDialog({ targetAddress, onClose, onAddToTable }: Prop
           {state === "done" && results.length === 0 && (
             <div className="empty" style={{ minHeight: 160 }}>
               <div className="empty-inner">
-                <p>未找到指向该地址的指针链。</p>
+                <p>{t("ptr.noResult" as MessageKey)}</p>
               </div>
             </div>
           )}
@@ -228,11 +229,11 @@ export function PointerScanDialog({ targetAddress, onClose, onAddToTable }: Prop
             <table>
               <thead>
                 <tr>
-                  <th style={{ width: 44 }}><span className="sr">选择</span></th>
-                  <th style={{ width: 180 }}>基地址</th>
-                  <th>偏移链</th>
-                  <th style={{ width: 150 }}>最终解析地址</th>
-                  <th style={{ width: 56 }}>深度</th>
+                  <th style={{ width: 44 }}></th>
+                  <th style={{ width: 180 }}>Base</th>
+                  <th>Offsets</th>
+                  <th style={{ width: 150 }}>Resolved</th>
+                  <th style={{ width: 56 }}>Depth</th>
                 </tr>
               </thead>
               <tbody>
@@ -263,7 +264,7 @@ export function PointerScanDialog({ targetAddress, onClose, onAddToTable }: Prop
         {/* Footer */}
         <div className="modal-foot">
           <span style={{ fontSize: 11, color: "var(--muted)" }}>
-            目标 <b className="mono">{target || "—"}</b> · {t("ptr.results", { count: results.length })}
+            {t("ptr.targetAddr")} <b className="mono">{target || "—"}</b> · {t("ptr.results", { count: results.length })}
           </span>
           <span className="spacer"></span>
           <button className="btn" onClick={onClose}>{t("ptr.cancel")}</button>

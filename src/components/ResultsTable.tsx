@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { useI18n } from "../i18n";
+import { useI18n, MessageKey } from "../i18n";
 import { ContextMenu, MenuItemDef } from "./ContextMenu";
 
 interface ScanResult {
@@ -35,6 +35,7 @@ export function ResultsTable({
   const { t } = useI18n();
   const [results, setResults] = useState<ScanResult[]>([]);
   const [page, setPage] = useState(1);
+  const [pageInput, setPageInput] = useState("1");
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -50,6 +51,8 @@ export function ResultsTable({
     mountedRef.current = true;
     return () => { mountedRef.current = false; };
   }, []);
+
+  useEffect(() => { setPageInput(String(page)); }, [page]);
 
   const fetchResults = useCallback(async () => {
     if (!attached || !hasSession) return;
@@ -166,22 +169,17 @@ export function ResultsTable({
         <span className="spacer" />
       </div>
 
-      {!hasSession || results.length === 0 ? (
+      {!hasSession ? (
         <div className="empty">
           <div className="empty-inner">
-            <svg aria-hidden="true" viewBox="0 0 24 24">
-              <circle cx="12" cy="12" r="10" />
-              <circle cx="12" cy="12" r="3" />
-              <line x1="12" y1="2" x2="12" y2="5" />
-              <line x1="12" y1="19" x2="12" y2="22" />
-              <line x1="2" y1="12" x2="5" y2="12" />
-              <line x1="19" y1="12" x2="22" y2="12" />
-            </svg>
-            <h3>{t("results.emptyTitle")}</h3>
-            <p>{t("results.emptyDesc")}</p>
-            <button className="btn btn-primary" onClick={onPickProcess}>
-              {t("results.attachBtn")}
-            </button>
+            <p style={{ fontWeight: 600 }}>{t("results.emptyRunScan" as MessageKey)}</p>
+            <p style={{ color: "var(--muted)" }}>{t("results.emptyRunScanDesc" as MessageKey)}</p>
+          </div>
+        </div>
+      ) : results.length === 0 ? (
+        <div className="empty">
+          <div className="empty-inner">
+            <p style={{ color: "var(--muted)" }}>{t("results.noMatch")}</p>
           </div>
         </div>
       ) : (
@@ -192,7 +190,7 @@ export function ResultsTable({
                 <tr>
                   <th style={{ width: 196 }}>{t("addr.colAddr")}</th>
                   <th style={{ width: 150 }}>{t("addr.colValue")}</th>
-                  <th style={{ width: 150 }}>上一次值</th>
+                  <th style={{ width: 150 }}>{t("results.colPrevious" as MessageKey)}</th>
                   <th>{t("addr.colType")}</th>
                 </tr>
               </thead>
@@ -224,7 +222,7 @@ export function ResultsTable({
             <span className="spacer" />
             <button
               className="btn btn-icon"
-              title="第一页"
+              title={t("results.pageFirst" as MessageKey)}
               disabled={page <= 1}
               onClick={() => goToPage(1)}
             >
@@ -232,7 +230,7 @@ export function ResultsTable({
             </button>
             <button
               className="btn btn-icon"
-              title="上一页"
+              title={t("results.pagePrev" as MessageKey)}
               disabled={page <= 1}
               onClick={() => goToPage(page - 1)}
             >
@@ -240,17 +238,25 @@ export function ResultsTable({
             </button>
             <input
               className="control page-in mono"
-              value={page}
-              onChange={(e) => {
-                const val = parseInt(e.target.value, 10);
-                if (!isNaN(val)) goToPage(val);
+              type="number"
+              min={1}
+              max={totalPages}
+              value={pageInput}
+              onChange={(e) => setPageInput(e.target.value)}
+              onBlur={() => {
+                const n = parseInt(pageInput, 10);
+                if (!isNaN(n)) goToPage(n);
+                else setPageInput(String(page));
               }}
-              aria-label="跳转到页码"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+              }}
+              aria-label={t("results.pageGo" as MessageKey)}
             />
             <span className="info">/ {totalPages}</span>
             <button
               className="btn btn-icon"
-              title="下一页"
+              title={t("results.pageNext" as MessageKey)}
               disabled={page >= totalPages}
               onClick={() => goToPage(page + 1)}
             >
@@ -258,7 +264,7 @@ export function ResultsTable({
             </button>
             <button
               className="btn btn-icon"
-              title="最后一页"
+              title={t("results.pageLast" as MessageKey)}
               disabled={page >= totalPages}
               onClick={() => goToPage(totalPages)}
             >

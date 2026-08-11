@@ -110,6 +110,9 @@
     --accent: #ff4d6d;
     --accent-hover: #ff6b85;
     --accent-active: #ff2e52;
+    --success: #34d058;
+    --warn: #f0a020;
+    --danger: #f85149;
   }
 }
 

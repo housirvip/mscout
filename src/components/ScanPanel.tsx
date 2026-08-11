@@ -23,7 +23,6 @@ interface Props {
   onNextScan: (count: number) => void;
   onUndo: (count: number) => void;
   onValueTypeChange: (vt: string) => void;
-  onReset: () => void;
   onPickProcess: () => void;
 }
 
@@ -87,7 +86,6 @@ export function ScanPanel({
   onNextScan,
   onUndo,
   onValueTypeChange,
-  onReset: _onReset,
   onPickProcess,
 }: Props) {
   const { t } = useI18n();
@@ -110,6 +108,16 @@ export function ScanPanel({
   const needsSecondValue = condition === "Between";
   const isAob = valueType === "ByteArray";
 
+  // Reset condition to first-scan-compatible if session ends
+  useEffect(() => {
+    if (!hasSession) {
+      const NEXT_ONLY: Condition[] = ["Changed", "Unchanged", "Increased", "Decreased"];
+      if (NEXT_ONLY.includes(condition)) {
+        setCondition("Exact");
+      }
+    }
+  }, [hasSession, condition]);
+
   // --- Build ScanValue ---
   function buildScanValue(): unknown | undefined {
     if (!needsValue) return null;
@@ -129,8 +137,12 @@ export function ScanPanel({
     return { [valueType]: numVal };
   }
 
-  function buildValue(input: string): unknown {
+  function buildNextValue(input: string): unknown | null {
     if (!input || input.trim() === "") return null;
+    if (isAob) {
+      const pattern = parseAobPattern(input);
+      return pattern && pattern.length > 0 ? { Pattern: pattern } : null;
+    }
     const numVal = valueType.startsWith("F") ? parseFloat(input) : parseInt(input, 10);
     if (isNaN(numVal)) return null;
     return { [valueType]: numVal };
@@ -154,7 +166,7 @@ export function ScanPanel({
         valueType,
         condition,
         value: scanValue,
-        value2: needsSecondValue ? buildValue(value2) : null,
+        value2: needsSecondValue ? buildNextValue(value2) : null,
         regionFilter,
         channel: onProgress,
       });
@@ -173,8 +185,8 @@ export function ScanPanel({
     try {
       const result = await invoke<{ match_count: number }>("next_scan", {
         condition,
-        value: needsValue ? buildValue(value) : null,
-        value2: needsSecondValue ? buildValue(value2) : null,
+        value: needsValue ? buildNextValue(value) : null,
+        value2: needsSecondValue ? buildNextValue(value2) : null,
       });
       onNextScan(result.match_count);
     } catch (e) {
@@ -285,7 +297,7 @@ export function ScanPanel({
               <input
                 className="control mono"
                 id="val1"
-                inputMode="decimal"
+                inputMode={isAob ? "text" : "decimal"}
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
                 disabled={scanning}
@@ -297,7 +309,7 @@ export function ScanPanel({
                   <input
                     className="control mono"
                     id="val2"
-                    inputMode="decimal"
+                    inputMode={isAob ? "text" : "decimal"}
                     value={value2}
                     onChange={(e) => setValue2(e.target.value)}
                     disabled={scanning}
@@ -325,7 +337,7 @@ export function ScanPanel({
               <polyline points="9 18 15 12 9 6" />
             </svg>
             {t("scan.options")}
-            <span className="count">{t("scan.optDefault").replace("3", String(activeOpts))}</span>
+            <span className="count">{t("scan.optDefault", { count: activeOpts })}</span>
           </button>
           {showOptions && (
             <div className="opt-body">
@@ -384,7 +396,7 @@ export function ScanPanel({
 
         <button
           className="btn btn-primary"
-          disabled={!attached || scanning}
+          disabled={scanning}
           onClick={attached ? handleFirstScan : onPickProcess}
         >
           {t("scan.firstScan")}
