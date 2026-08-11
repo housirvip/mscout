@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { invoke, Channel } from "@tauri-apps/api/core";
 import { useToast } from "./Toast";
 
@@ -7,6 +7,7 @@ interface Props {
   onFirstScan?: () => void;
   onNextScan?: () => void;
   onUndo?: () => void;
+  onValueTypeChange?: (vt: string) => void;
 }
 
 interface ScanProgress {
@@ -38,7 +39,7 @@ function parseAobPattern(input: string): (number | null)[] | null {
   return result;
 }
 
-export function ScanPanel({ attached, onFirstScan, onNextScan, onUndo }: Props) {
+export function ScanPanel({ attached, onFirstScan, onNextScan, onUndo, onValueTypeChange }: Props) {
   const [valueType, setValueType] = useState("I32");
   const [condition, setCondition] = useState("Exact");
   const [value, setValue] = useState("");
@@ -54,11 +55,13 @@ export function ScanPanel({ attached, onFirstScan, onNextScan, onUndo }: Props) 
   });
   const { showToast } = useToast();
 
-  // Listen for keyboard shortcut events from App
+  const handlersRef = useRef({ handleFirstScan, handleNextScan, handleUndo });
+  useEffect(() => { handlersRef.current = { handleFirstScan, handleNextScan, handleUndo }; });
+
   useEffect(() => {
-    const doFirst = () => { handleFirstScan(); };
-    const doNext = () => { handleNextScan(); };
-    const doUndo = () => { handleUndo(); };
+    const doFirst = () => handlersRef.current.handleFirstScan();
+    const doNext = () => handlersRef.current.handleNextScan();
+    const doUndo = () => handlersRef.current.handleUndo();
     window.addEventListener("scan:first", doFirst);
     window.addEventListener("scan:next", doNext);
     window.addEventListener("scan:undo", doUndo);
@@ -67,7 +70,7 @@ export function ScanPanel({ attached, onFirstScan, onNextScan, onUndo }: Props) 
       window.removeEventListener("scan:next", doNext);
       window.removeEventListener("scan:undo", doUndo);
     };
-  });
+  }, []);
 
   const needsValue = !["Unknown", "Changed", "Unchanged", "Increased", "Decreased"].includes(condition);
   const needsSecondValue = condition === "Between";
@@ -83,7 +86,19 @@ export function ScanPanel({ attached, onFirstScan, onNextScan, onUndo }: Props) 
       }
       return { Pattern: pattern };
     }
-    return value;
+    const numVal = valueType.startsWith("F") ? parseFloat(value) : parseInt(value, 10);
+    if (value.trim() === "" || isNaN(numVal)) {
+      showToast("Please enter a valid number", "error");
+      return undefined;
+    }
+    return { [valueType]: numVal };
+  }
+
+  function buildValue(input: string): unknown {
+    if (!input || input.trim() === "") return null;
+    const numVal = valueType.startsWith("F") ? parseFloat(input) : parseInt(input, 10);
+    if (isNaN(numVal)) return null;
+    return { [valueType]: numVal };
   }
 
   async function handleFirstScan() {
@@ -103,7 +118,7 @@ export function ScanPanel({ attached, onFirstScan, onNextScan, onUndo }: Props) 
         valueType,
         condition,
         value: scanValue,
-        value2: needsSecondValue ? value2 : null,
+        value2: needsSecondValue ? buildValue(value2) : null,
         regionFilter,
         channel: onProgress,
       });
@@ -123,8 +138,8 @@ export function ScanPanel({ attached, onFirstScan, onNextScan, onUndo }: Props) 
     try {
       const result = await invoke<{ match_count: number }>("next_scan", {
         condition,
-        value: needsValue ? value : null,
-        value2: needsSecondValue ? value2 : null,
+        value: needsValue ? buildValue(value) : null,
+        value2: needsSecondValue ? buildValue(value2) : null,
       });
       setMatchCount(result.match_count);
       onNextScan?.();
@@ -136,6 +151,7 @@ export function ScanPanel({ attached, onFirstScan, onNextScan, onUndo }: Props) 
   }
 
   async function handleUndo() {
+    if (!attached) return;
     try {
       const result = await invoke<{ match_count: number }>("undo_scan");
       setMatchCount(result.match_count);
@@ -149,13 +165,14 @@ export function ScanPanel({ attached, onFirstScan, onNextScan, onUndo }: Props) 
     setMatchCount(null);
     setValue("");
     setValue2("");
+    onFirstScan?.();
   }
 
   return (
     <div>
       <div className="scan-section">
         <label>Value Type</label>
-        <select value={valueType} onChange={(e) => setValueType(e.target.value)}>
+        <select value={valueType} onChange={(e) => { setValueType(e.target.value); onValueTypeChange?.(e.target.value); }}>
           <option value="I8">Int8</option>
           <option value="I16">Int16</option>
           <option value="I32">Int32</option>

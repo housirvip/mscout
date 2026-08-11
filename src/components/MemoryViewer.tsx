@@ -15,26 +15,39 @@ export function MemoryViewer({ address, onClose }: Props) {
   const SIZE = ROWS * COLS;
 
   const fetchMemory = useCallback(async () => {
-    if (baseAddress === 0) return;
+    if (address === null) return;
     try {
       const result = await invoke<{ address: number; bytes: number[] }>("read_at", {
         address: baseAddress,
         size: SIZE,
       });
       setBytes(result.bytes);
-    } catch {
+    } catch (e) {
+      console.warn("Failed to read memory:", e);
       setBytes([]);
     }
-  }, [baseAddress]);
+  }, [baseAddress, address, SIZE]);
 
   useEffect(() => {
     fetchMemory();
   }, [fetchMemory]);
 
   useEffect(() => {
-    const interval = setInterval(fetchMemory, 1000);
-    return () => clearInterval(interval);
-  }, [fetchMemory]);
+    if (address === null) return;
+    let mounted = true;
+    let timeoutId: number;
+    const poll = async () => {
+      await fetchMemory();
+      if (mounted) {
+        timeoutId = window.setTimeout(poll, 1000);
+      }
+    };
+    timeoutId = window.setTimeout(poll, 1000);
+    return () => {
+      mounted = false;
+      clearTimeout(timeoutId);
+    };
+  }, [fetchMemory, address]);
 
   useEffect(() => {
     if (address !== null) {
@@ -52,35 +65,42 @@ export function MemoryViewer({ address, onClose }: Props) {
 
   const rows = [];
   for (let i = 0; i < ROWS; i++) {
-    const offset = i * COLS;
-    const rowBytes = bytes.slice(offset, offset + COLS);
-    const addr = (baseAddress + offset).toString(16).padStart(12, "0").toUpperCase();
-    const hex = rowBytes
-      .map((b) => b.toString(16).padStart(2, "0").toUpperCase())
-      .join(" ");
-    const ascii = rowBytes
-      .map((b) => (b >= 32 && b <= 126 ? String.fromCharCode(b) : "."))
-      .join("");
-    rows.push({ addr, hex, ascii });
+    const rowBytes = bytes.slice(i * COLS, (i + 1) * COLS);
+    const addr = baseAddress + i * COLS;
+    rows.push(
+      <div key={i} className="hex-row">
+        <span className="hex-addr">
+          {addr.toString(16).toUpperCase().padStart(8, "0")}
+        </span>
+        <span className="hex-bytes">
+          {rowBytes.map((b, j) => (
+            <span key={j}>{b.toString(16).toUpperCase().padStart(2, "0")} </span>
+          ))}
+        </span>
+        <span className="hex-ascii">
+          {rowBytes.map((b) => (b >= 32 && b <= 126 ? String.fromCharCode(b) : ".")).join("")}
+        </span>
+      </div>
+    );
   }
 
   return (
     <div className="memory-viewer">
       <div className="memory-viewer-header">
-        <span>Memory Viewer</span>
+        <span>
+          Memory @ 0x{baseAddress.toString(16).toUpperCase().padStart(8, "0")}
+        </span>
         <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
           <input
             type="text"
-            className="goto-input"
+            placeholder="Go to address..."
             value={gotoInput}
             onChange={(e) => setGotoInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleGoto()}
-            placeholder="Go to address..."
-            style={{ width: 120, fontSize: 11 }}
+            style={{ width: 120 }}
           />
-          <button onClick={() => setBaseAddress(Math.max(0, baseAddress - SIZE))}>↑</button>
-          <button onClick={() => setBaseAddress(baseAddress + SIZE)}>↓</button>
-          <button onClick={onClose}>✕</button>
+          <button onClick={handleGoto}>Go</button>
+          <button onClick={onClose}>×</button>
         </div>
       </div>
       <div className="memory-viewer-content">
@@ -89,22 +109,11 @@ export function MemoryViewer({ address, onClose }: Props) {
           <span className="hex-bytes">
             {Array.from({ length: COLS }, (_, i) =>
               i.toString(16).toUpperCase().padStart(2, "0")
-            ).join(" ")}
+            ).join(" ")}{" "}
           </span>
           <span className="hex-ascii">ASCII</span>
         </div>
-        {rows.map((row, i) => (
-          <div key={i} className="hex-row">
-            <span className="hex-addr">{row.addr}</span>
-            <span className="hex-bytes">{row.hex}</span>
-            <span className="hex-ascii">{row.ascii}</span>
-          </div>
-        ))}
-        {bytes.length === 0 && (
-          <div style={{ padding: 16, textAlign: "center", color: "var(--text-secondary)" }}>
-            No data. Select an address to view memory.
-          </div>
-        )}
+        {rows}
       </div>
     </div>
   );

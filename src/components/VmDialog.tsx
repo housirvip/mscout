@@ -28,10 +28,18 @@ export function VmDialog({ onAttach, onClose }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let ignore = false;
     invoke<VmInfo[]>("list_vms")
-      .then(setVms)
-      .catch((e) => setError(String(e)))
-      .finally(() => setLoading(false));
+      .then((data) => {
+        if (!ignore) setVms(data);
+      })
+      .catch((e) => {
+        if (!ignore) setError(String(e));
+      })
+      .finally(() => {
+        if (!ignore) setLoading(false);
+      });
+    return () => { ignore = true; };
   }, []);
 
   const handleSelectVm = async (vm: VmInfo) => {
@@ -72,28 +80,28 @@ export function VmDialog({ onAttach, onClose }: Props) {
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h2>VM Scan</h2>
+      <div className="modal" onClick={(e) => e.stopPropagation()} style={{ width: 600 }}>
+        <h2>Virtual Machine Scanner</h2>
 
         {error && (
-          <div style={{ color: "var(--error)", padding: "8px 0" }}>
+          <div style={{ color: "var(--error)", marginBottom: 8, fontSize: 13 }}>
             {error}
           </div>
         )}
 
         {!selectedVm ? (
           <>
-            <p style={{ color: "var(--text-secondary)", margin: "8px 0" }}>
-              Select a running virtual machine:
+            <p style={{ color: "var(--text-secondary)", margin: "0 0 8px" }}>
+              Select a VM to scan:
             </p>
             <div className="process-list">
               {loading ? (
                 <div style={{ padding: 12, color: "var(--text-secondary)" }}>
-                  Detecting VMs...
+                  Detecting virtual machines...
                 </div>
               ) : vms.length === 0 ? (
                 <div style={{ padding: 12, color: "var(--text-secondary)" }}>
-                  No VMs detected. Ensure VMware or Hyper-V is running.
+                  No virtual machines found.
                 </div>
               ) : (
                 vms.map((vm) => (
@@ -102,10 +110,10 @@ export function VmDialog({ onAttach, onClose }: Props) {
                     className="process-item"
                     onDoubleClick={() => handleSelectVm(vm)}
                   >
-                    <span>{vm.name}</span>
-                    <span style={{ color: "var(--text-secondary)" }}>
-                      {vm.vm_type}
+                    <span>
+                      {vm.name} <span style={{ color: "var(--text-secondary)" }}>({vm.vm_type})</span>
                     </span>
+                    <span style={{ color: "var(--text-secondary)" }}>PID {vm.pid}</span>
                   </div>
                 ))
               )}
@@ -113,51 +121,50 @@ export function VmDialog({ onAttach, onClose }: Props) {
           </>
         ) : (
           <>
-            <p style={{ color: "var(--text-secondary)", margin: "8px 0" }}>
-              {selectedVm.name} — Select a guest process:
+            <p style={{ color: "var(--text-secondary)", margin: "0 0 8px" }}>
+              VM: {selectedVm.name} — Select a guest process:
             </p>
-            {scanning ? (
-              <div style={{ padding: 12, color: "var(--text-secondary)" }}>
-                Scanning guest kernel... This may take a few seconds.
-              </div>
-            ) : (
-              <>
-                <input
-                  className="search-input"
-                  type="text"
-                  placeholder="Filter by name or PID..."
-                  value={filter}
-                  onChange={(e) => setFilter(e.target.value)}
-                  autoFocus
-                />
-                <div className="process-list">
-                  {filteredProcesses.map((p) => (
-                    <div
-                      key={p.pid}
-                      className="process-item"
-                      onDoubleClick={() => handleAttachProcess(p)}
-                    >
-                      <span>{p.name}</span>
-                      <span style={{ color: "var(--text-secondary)" }}>
-                        {p.pid}
-                      </span>
-                    </div>
-                  ))}
+            <input
+              className="search-input"
+              type="text"
+              placeholder="Filter by name or PID..."
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              autoFocus
+            />
+            <div className="process-list">
+              {scanning ? (
+                <div style={{ padding: 12, color: "var(--text-secondary)" }}>
+                  Scanning guest processes...
                 </div>
-              </>
-            )}
-            <button
-              style={{ marginTop: 8 }}
-              onClick={() => {
-                setSelectedVm(null);
-                setGuestProcesses([]);
-                setFilter("");
-              }}
-            >
-              ← Back to VM list
-            </button>
+              ) : filteredProcesses.length === 0 ? (
+                <div style={{ padding: 12, color: "var(--text-secondary)" }}>
+                  No guest processes found.
+                </div>
+              ) : (
+                filteredProcesses.map((p) => (
+                  <div
+                    key={p.pid}
+                    className="process-item"
+                    onDoubleClick={() => handleAttachProcess(p)}
+                  >
+                    <span>{p.name}</span>
+                    <span style={{ color: "var(--text-secondary)" }}>{p.pid}</span>
+                  </div>
+                ))
+              )}
+            </div>
+            <div style={{ marginTop: 8 }}>
+              <button onClick={() => { setSelectedVm(null); setGuestProcesses([]); setFilter(""); }}>
+                ← Back
+              </button>
+            </div>
           </>
         )}
+
+        <div style={{ marginTop: 12, textAlign: "right" }}>
+          <button onClick={onClose}>Close</button>
+        </div>
       </div>
     </div>
   );

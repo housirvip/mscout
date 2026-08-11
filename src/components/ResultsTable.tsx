@@ -9,12 +9,14 @@ interface ScanResult {
 }
 
 interface Props {
+  attached?: boolean;
+  valueType?: string;
   onViewMemory?: (address: number) => void;
   onAddToTable?: (address: string, value: string, valueType: string) => void;
   onPointerScan?: (address: string) => void;
 }
 
-export function ResultsTable({ onViewMemory, onAddToTable, onPointerScan }: Props) {
+export function ResultsTable({ attached, valueType, onViewMemory, onAddToTable, onPointerScan }: Props) {
   const [results, setResults] = useState<ScanResult[]>([]);
   const [offset, setOffset] = useState(0);
   const [contextMenu, setContextMenu] = useState<{
@@ -31,16 +33,23 @@ export function ResultsTable({ onViewMemory, onAddToTable, onPointerScan }: Prop
         count: pageSize,
       });
       setResults(data);
-    } catch {
-      // No active scan session
+    } catch (e) {
+      const msg = String(e);
+      if (!msg.includes("No scan session") && !msg.includes("No process attached")) {
+        console.warn("Failed to fetch scan results:", e);
+      }
     }
   }, [offset]);
 
   useEffect(() => {
+    if (!attached) {
+      setResults([]);
+      return;
+    }
     fetchResults();
     const interval = setInterval(fetchResults, 1000);
     return () => clearInterval(interval);
-  }, [fetchResults]);
+  }, [fetchResults, attached]);
 
   function handleContextMenu(e: React.MouseEvent, row: ScanResult) {
     e.preventDefault();
@@ -51,7 +60,7 @@ export function ResultsTable({ onViewMemory, onAddToTable, onPointerScan }: Prop
     return [
       {
         label: "Add to Address Table",
-        onClick: () => onAddToTable?.(row.address, row.value, "I32"),
+        onClick: () => onAddToTable?.(row.address, row.value, valueType ?? "I32"),
       },
       {
         label: "View in Memory",
@@ -66,8 +75,10 @@ export function ResultsTable({ onViewMemory, onAddToTable, onPointerScan }: Prop
       },
       {
         label: "Copy Address",
-        onClick: () => {
-          navigator.clipboard.writeText(row.address);
+        onClick: async () => {
+          try {
+            await navigator.clipboard.writeText(row.address);
+          } catch {}
         },
       },
     ];
@@ -106,12 +117,14 @@ export function ResultsTable({ onViewMemory, onAddToTable, onPointerScan }: Prop
           )}
         </tbody>
       </table>
-      {results.length === pageSize && (
+      {(offset > 0 || results.length === pageSize) && (
         <div style={{ padding: 8, display: "flex", gap: 8, justifyContent: "center" }}>
           <button disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - pageSize))}>
             ← Prev
           </button>
-          <button onClick={() => setOffset(offset + pageSize)}>Next →</button>
+          <button disabled={results.length < pageSize} onClick={() => setOffset(offset + pageSize)}>
+            Next →
+          </button>
         </div>
       )}
 

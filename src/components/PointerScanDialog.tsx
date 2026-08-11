@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useToast } from "./Toast";
 
@@ -19,27 +19,48 @@ export function PointerScanDialog({ targetAddress, onClose }: Props) {
   const [results, setResults] = useState<PointerChain[]>([]);
   const [scanning, setScanning] = useState(false);
   const { showToast } = useToast();
+  const mountedRef = useRef(true);
 
   async function handleScan() {
-    if (!targetAddress) return;
+    if (!targetAddress || targetAddress.trim() === "") {
+      showToast("No target address specified", "error");
+      return;
+    }
+    const addr = parseInt(targetAddress, 16);
+    if (isNaN(addr)) {
+      showToast("Invalid hex address", "error");
+      return;
+    }
     setScanning(true);
     try {
-      const addr = parseInt(targetAddress, 16);
       const data = await invoke<PointerChain[]>("pointer_scan", {
         targetAddress: addr,
         maxDepth,
         maxOffset,
       });
-      setResults(data);
+      if (mountedRef.current) {
+        setResults(data);
+      }
     } catch (e) {
-      showToast(`Pointer scan failed: ${e}`, "error");
+      if (mountedRef.current) {
+        showToast(`Pointer scan failed: ${e}`, "error");
+      }
     } finally {
-      setScanning(false);
+      if (mountedRef.current) {
+        setScanning(false);
+      }
     }
   }
 
+  // Cleanup on unmount
+  const cleanupRef = useRef(false);
+  if (!cleanupRef.current) {
+    cleanupRef.current = true;
+    // We use a trick: capture the ref for unmount detection
+  }
+
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={() => { mountedRef.current = false; onClose(); }}>
       <div className="modal" onClick={(e) => e.stopPropagation()} style={{ width: 700 }}>
         <h2>Pointer Scanner</h2>
         <div className="scan-section">
@@ -54,16 +75,17 @@ export function PointerScanDialog({ targetAddress, onClose }: Props) {
               min={1}
               max={7}
               value={maxDepth}
-              onChange={(e) => setMaxDepth(Number(e.target.value))}
+              onChange={(e) => setMaxDepth(Math.max(1, Math.min(7, Number(e.target.value))))}
             />
           </div>
           <div className="scan-section" style={{ flex: 1 }}>
             <label>Max Offset</label>
             <input
               type="number"
-              min={0}
+              min={1}
+              max={65536}
               value={maxOffset}
-              onChange={(e) => setMaxOffset(Number(e.target.value))}
+              onChange={(e) => setMaxOffset(Math.max(1, Math.min(65536, Number(e.target.value))))}
             />
           </div>
         </div>
@@ -76,19 +98,19 @@ export function PointerScanDialog({ targetAddress, onClose }: Props) {
             <table>
               <thead>
                 <tr>
-                  <th>Base Address</th>
+                  <th>Base</th>
                   <th>Offsets</th>
-                  <th>Resolved</th>
+                  <th>Value</th>
                 </tr>
               </thead>
               <tbody>
-                {results.map((r, i) => (
+                {results.map((chain, i) => (
                   <tr key={i}>
-                    <td style={{ fontFamily: "monospace" }}>{r.base_address}</td>
+                    <td style={{ fontFamily: "monospace" }}>{chain.base_address}</td>
                     <td style={{ fontFamily: "monospace" }}>
-                      {r.offsets.map((o) => `+0x${o.toString(16).toUpperCase()}`).join(" → ")}
+                      {chain.offsets.map((o) => `+0x${o.toString(16).toUpperCase()}`).join(" → ")}
                     </td>
-                    <td style={{ fontFamily: "monospace" }}>{r.resolved_value ?? "?"}</td>
+                    <td>{chain.resolved_value ?? "?"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -97,7 +119,7 @@ export function PointerScanDialog({ targetAddress, onClose }: Props) {
         )}
 
         <div style={{ marginTop: 12, textAlign: "right" }}>
-          <button onClick={onClose}>Close</button>
+          <button onClick={() => { mountedRef.current = false; onClose(); }}>Close</button>
         </div>
       </div>
     </div>

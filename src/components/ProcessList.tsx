@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { useToast } from "./Toast";
 
 interface ProcessInfo {
   pid: number;
@@ -15,11 +16,12 @@ export function ProcessList({ onAttach, onClose }: Props) {
   const [processes, setProcesses] = useState<ProcessInfo[]>([]);
   const [filter, setFilter] = useState("");
   const [loading, setLoading] = useState(true);
+  const { showToast } = useToast();
 
   useEffect(() => {
     invoke<ProcessInfo[]>("list_processes")
       .then(setProcesses)
-      .catch(console.error)
+      .catch((e) => showToast(`Failed to list processes: ${e}`, "error"))
       .finally(() => setLoading(false));
   }, []);
 
@@ -45,6 +47,12 @@ export function ProcessList({ onAttach, onClose }: Props) {
           {loading ? (
             <div style={{ padding: 12, color: "var(--text-secondary)" }}>
               Loading...
+            </div>
+          ) : filtered.length === 0 ? (
+            <div style={{ padding: 12, color: "var(--text-secondary)", textAlign: "center" }}>
+              {processes.length === 0
+                ? "No processes found."
+                : "No processes match the filter."}
             </div>
           ) : (
             filtered.map((p) => (

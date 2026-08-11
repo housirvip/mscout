@@ -1,34 +1,59 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useToast } from "./Toast";
 
 export interface AddressEntry {
-  address: string;
+  address: number;
   label: string;
-  value_type: string;
-  value: string;
-  frozen: boolean;
+  value: unknown;
+  enabled: boolean;
 }
 
 interface Props {
   externalEntries?: AddressEntry[];
 }
 
+function formatAddress(addr: number): string {
+  return addr.toString(16).toUpperCase().padStart(8, "0");
+}
+
+function formatValue(val: unknown): string {
+  if (val === null || val === undefined) return "";
+  if (typeof val === "object") {
+    const entries = Object.entries(val as Record<string, unknown>);
+    if (entries.length === 1) return String(entries[0][1]);
+  }
+  return String(val);
+}
+
+export function getValueType(val: unknown): string {
+  if (val === null || val === undefined) return "I32";
+  if (typeof val === "object") {
+    const keys = Object.keys(val as Record<string, unknown>);
+    if (keys.length === 1) return keys[0];
+  }
+  return "I32";
+}
+
 export function AddressTable({ externalEntries }: Props) {
   const [entries, setEntries] = useState<AddressEntry[]>([]);
-  const [editingLabel, setEditingLabel] = useState<string | null>(null);
+  const [editingLabel, setEditingLabel] = useState<number | null>(null);
   const [labelDraft, setLabelDraft] = useState("");
   const { showToast } = useToast();
+  const failCountRef = useRef(0);
 
-  // Live refresh: poll values every 500ms
   const refreshValues = useCallback(async () => {
     try {
       const data = await invoke<AddressEntry[]>("list_frozen");
       setEntries(data);
-    } catch {
-      // ignore
+      failCountRef.current = 0;
+    } catch (e) {
+      failCountRef.current++;
+      if (failCountRef.current >= 3) {
+        showToast("Lost connection to process", "error");
+      }
     }
-  }, []);
+  }, [showToast]);
 
   useEffect(() => {
     refreshValues();
@@ -36,42 +61,59 @@ export function AddressTable({ externalEntries }: Props) {
     return () => clearInterval(interval);
   }, [refreshValues]);
 
-  // Merge external entries added from ResultsTable context menu
+  // Persist external entries to backend so polling doesn't overwrite them
   useEffect(() => {
-    if (externalEntries && externalEntries.length > 0) {
-      setEntries((prev) => {
-        const existing = new Set(prev.map((e) => e.address));
-        const newOnes = externalEntries.filter((e) => !existing.has(e.address));
-        return [...prev, ...newOnes];
-      });
-    }
-  }, [externalEntries]);
+    if (!externalEntries || externalEntries.length === 0) return;
+    const addToBackend = async () => {
+      for (const entry of externalEntries) {
+        try {
+          await invoke("add_frozen", {
+            address: entry.address,
+            value: entry.value,
+            label: entry.label,
+          });
+        } catch (e) {
+          showToast(`Failed to add: ${e}`, "error");
+        }
+      }
+      refreshValues();
+    };
+    addToBackend();
+  }, [externalEntries, showToast, refreshValues]);
 
-  async function toggleFreeze(address: string) {
+  async function toggleFreeze(address: number, currentEnabled: boolean) {
     try {
-      await invoke("toggle_frozen", { address });
+      await invoke("toggle_frozen", { address, enabled: !currentEnabled });
     } catch (e) {
       showToast(`Failed to toggle freeze: ${e}`, "error");
     }
   }
 
-  async function handleEditValue(address: string, currentValue: string) {
-    const newValue = prompt("Enter new value:", currentValue);
-    if (newValue === null) return;
+  async function handleEditValue(address: number, currentValue: unknown) {
+    const display = formatValue(currentValue);
+    const newValue = prompt("Enter new value:", display);
+    if (newValue === null || newValue.trim() === "") return;
     try {
-      await invoke("write_value", { address, value: newValue });
+      const vtype = getValueType(currentValue);
+      const parsed = vtype.startsWith("F") ? parseFloat(newValue) : parseInt(newValue, 10);
+      if (isNaN(parsed)) {
+        showToast("Invalid number", "error");
+        return;
+      }
+      const value = { [vtype]: parsed };
+      await invoke("write_at", { address, value });
     } catch (e) {
       showToast(`Write failed: ${e}`, "error");
     }
   }
 
-  function startEditLabel(address: string, current: string) {
+  function startEditLabel(address: number, current: string) {
     setEditingLabel(address);
     setLabelDraft(current);
   }
 
   function commitLabel() {
-    if (editingLabel) {
+    if (editingLabel !== null) {
       setEntries((prev) =>
         prev.map((e) =>
           e.address === editingLabel ? { ...e, label: labelDraft } : e
@@ -99,8 +141,8 @@ export function AddressTable({ externalEntries }: Props) {
               <td>
                 <input
                   type="checkbox"
-                  checked={entry.frozen}
-                  onChange={() => toggleFreeze(entry.address)}
+                  checked={entry.enabled}
+                  onChange={() => toggleFreeze(entry.address, entry.enabled)}
                 />
               </td>
               <td onDoubleClick={() => startEditLabel(entry.address, entry.label)}>
@@ -118,13 +160,13 @@ export function AddressTable({ externalEntries }: Props) {
                   entry.label || "(double-click to name)"
                 )}
               </td>
-              <td style={{ fontFamily: "monospace" }}>{entry.address}</td>
-              <td>{entry.value_type}</td>
+              <td style={{ fontFamily: "monospace" }}>{formatAddress(entry.address)}</td>
+              <td>{getValueType(entry.value)}</td>
               <td
                 style={{ fontFamily: "monospace", cursor: "pointer" }}
                 onDoubleClick={() => handleEditValue(entry.address, entry.value)}
               >
-                {entry.value}
+                {formatValue(entry.value)}
               </td>
             </tr>
           ))}

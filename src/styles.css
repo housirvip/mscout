@@ -116,7 +116,7 @@ button {
   font-size: 12px;
 }
 
-button:hover {
+button:not(:disabled):hover {
   background: var(--accent);
   color: #000;
 }
@@ -166,7 +166,8 @@ tr:hover {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 16px;
-  width: 500px;
+  max-width: 500px;
+  width: calc(100vw - 32px);
   max-height: 80vh;
   display: flex;
   flex-direction: column;
