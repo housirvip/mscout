@@ -1,6 +1,6 @@
 export default {
   // toolbar
-  "toolbar.brand": "MemScanner",
+  "toolbar.brand": "MScout",
   "toolbar.pickProcess": "选择进程",
   "toolbar.vmScan": "VM 扫描",
   "toolbar.saveTable": "保存表",
@@ -48,7 +48,7 @@ export default {
   "results.noMatch": "尚无匹配",
   "results.matches": "找到 {count} 个匹配",
   "results.emptyTitle": "先附加到一个进程",
-  "results.emptyDesc": "MemScanner 需要读写目标进程的内存。附加后即可选择数据类型并执行首次扫描。",
+  "results.emptyDesc": "MScout 需要读写目标进程的内存。附加后即可选择数据类型并执行首次扫描。",
   "results.attachBtn": "附加到进程",
   "results.ctxAdd": "添加到地址表",
   "results.ctxView": "在内存中查看",

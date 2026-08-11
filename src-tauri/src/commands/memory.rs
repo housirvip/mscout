@@ -1,7 +1,7 @@
 use parking_lot::Mutex;
 
-use mem_scanner_core::platform::MemoryRegion;
-use mem_scanner_core::scanner::ScanValue;
+use mscout_core::platform::MemoryRegion;
+use mscout_core::scanner::ScanValue;
 use serde::Serialize;
 use tauri::State;
 

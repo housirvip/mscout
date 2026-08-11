@@ -1817,35 +1817,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "mem-scanner"
-version = "0.1.0"
-dependencies = [
- "mem-scanner-core",
- "parking_lot",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-dialog",
- "tokio",
-]
-
-[[package]]
-name = "mem-scanner-core"
-version = "0.1.0"
-dependencies = [
- "bincode",
- "libc",
- "mach2",
- "parking_lot",
- "rayon",
- "serde",
- "serde_json",
- "thiserror 2.0.20",
- "windows 0.58.0",
-]
-
-[[package]]
 name = "memchr"
 version = "2.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1885,6 +1856,35 @@ dependencies = [
  "libc",
  "wasi",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "mscout"
+version = "0.1.0"
+dependencies = [
+ "mscout-core",
+ "parking_lot",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+ "tokio",
+]
+
+[[package]]
+name = "mscout-core"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "libc",
+ "mach2",
+ "parking_lot",
+ "rayon",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.20",
+ "windows 0.58.0",
 ]
 
 [[package]]

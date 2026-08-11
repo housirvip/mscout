@@ -66,7 +66,7 @@ function AppContent() {
   const handleSaveTable = useCallback(async () => {
     try {
       const path = await save({
-        filters: [{ name: "MemScanner Table", extensions: ["mst"] }],
+        filters: [{ name: "MScout Table", extensions: ["mst"] }],
       });
       if (!path) return;
       const entries = await invoke<FrozenEntry[]>("list_frozen");
@@ -91,7 +91,7 @@ function AppContent() {
   const handleLoadTable = useCallback(async () => {
     try {
       const path = await open({
-        filters: [{ name: "MemScanner Table", extensions: ["mst"] }],
+        filters: [{ name: "MScout Table", extensions: ["mst"] }],
       });
       if (!path) return;
       const table = await invoke<CheatTable>("load_table", { path });

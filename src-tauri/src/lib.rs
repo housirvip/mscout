@@ -1,6 +1,6 @@
 use parking_lot::Mutex;
 
-use mem_scanner_core::{
+use mscout_core::{
     freeze::FreezeManager,
     platform::ProcessMemory,
     scanner::ScanSession,

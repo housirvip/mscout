@@ -18,7 +18,7 @@ const I18nContext = createContext<I18nContextType>(null!);
 
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [locale, setLocale] = useState<Locale>(() => {
-    const stored = localStorage.getItem("mem-scanner-locale");
+    const stored = localStorage.getItem("mscout-locale");
     if (stored === "en" || stored === "zh") return stored;
     return navigator.language.startsWith("zh") ? "zh" : "en";
   });
@@ -35,7 +35,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
   const handleSetLocale = useCallback((l: Locale) => {
     setLocale(l);
-    localStorage.setItem("mem-scanner-locale", l);
+    localStorage.setItem("mscout-locale", l);
   }, []);
 
   return (

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MemScanner — 扫描工作台</title>
+<title>MScout — 扫描工作台</title>
 <style>
 :root {
   --bg: #ffffff;
@@ -442,7 +442,7 @@ body:has(.app.compact) { --row-h: 22px; --tb-h: 44px; }
   <header class="toolbar" data-od-id="toolbar">
     <div class="brand" data-od-id="brand">
       <svg class="brand-mark" aria-hidden="true"><use href="#i-cpu"/></svg>
-      <span class="brand-name">MemScanner</span>
+      <span class="brand-name">MScout</span>
       <span class="brand-ver">0.4</span>
     </div>
 
@@ -573,7 +573,7 @@ body:has(.app.compact) { --row-h: 22px; --tb-h: 44px; }
           <div class="empty-inner">
             <svg aria-hidden="true"><use href="#i-target"/></svg>
             <h3>先附加到一个进程</h3>
-            <p>MemScanner 需要读写目标进程的内存。附加后即可选择数据类型并执行首次扫描，扫描过程中可继续切回游戏窗口。</p>
+            <p>MScout 需要读写目标进程的内存。附加后即可选择数据类型并执行首次扫描，扫描过程中可继续切回游戏窗口。</p>
             <button class="btn btn-primary" id="btnPickEmpty" data-od-id="cta-attach-process">附加到进程</button>
           </div>
         </div>
@@ -1142,7 +1142,7 @@ $('hexUp').onclick = () => { S.hexBase -= 0x100; renderHex(); };
 $('hexDown').onclick = () => { S.hexBase += 0x100; renderHex(); };
 
 /* ══════════════ cheat table persistence ══════════════ */
-const KEY = 'memscanner.cheattable.v1';
+const KEY = 'mscout.cheattable.v1';
 function persist() { try { localStorage.setItem(KEY, JSON.stringify(S.addr)); } catch (e) {} }
 function saveTable() {
   persist();

@@ -1,6 +1,6 @@
 use parking_lot::Mutex;
 
-use mem_scanner_core::{
+use mscout_core::{
     freeze::FreezeManager,
     scanner::ScanValue,
 };
@@ -63,7 +63,7 @@ pub fn toggle_frozen(
 #[tauri::command]
 pub fn list_frozen(
     state: State<'_, Mutex<AppState>>,
-) -> Result<Vec<mem_scanner_core::freeze::FrozenEntry>, String> {
+) -> Result<Vec<mscout_core::freeze::FrozenEntry>, String> {
     let app_state = state.lock();
     match &app_state.freeze_manager {
         Some(fm) => Ok(fm.list()),

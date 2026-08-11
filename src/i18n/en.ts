@@ -1,6 +1,6 @@
 export default {
   // toolbar
-  "toolbar.brand": "MemScanner",
+  "toolbar.brand": "MScout",
   "toolbar.pickProcess": "Pick Process",
   "toolbar.vmScan": "VM Scan",
   "toolbar.saveTable": "Save Table",
@@ -48,7 +48,7 @@ export default {
   "results.noMatch": "No matches yet",
   "results.matches": "{count} matches found",
   "results.emptyTitle": "Attach to a process first",
-  "results.emptyDesc": "MemScanner needs to read and write target process memory. After attaching, choose a data type and run the first scan.",
+  "results.emptyDesc": "MScout needs to read and write target process memory. After attaching, choose a data type and run the first scan.",
   "results.attachBtn": "Attach to Process",
   "results.ctxAdd": "Add to Address Table",
   "results.ctxView": "View in Memory",

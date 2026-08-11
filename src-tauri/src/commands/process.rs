@@ -1,6 +1,6 @@
 use parking_lot::Mutex;
 
-use mem_scanner_core::platform::{NativeProcess, ProcessInfo, ProcessMemory};
+use mscout_core::platform::{NativeProcess, ProcessInfo, ProcessMemory};
 use std::sync::Arc;
 use tauri::State;
 

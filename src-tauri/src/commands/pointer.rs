@@ -1,6 +1,6 @@
 use parking_lot::Mutex;
 
-use mem_scanner_core::pointer::{PointerChain, PointerScanner, resolve_pointer};
+use mscout_core::pointer::{PointerChain, PointerScanner, resolve_pointer};
 use tauri::State;
 
 use crate::AppState;

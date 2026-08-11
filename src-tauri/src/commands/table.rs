@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use mem_scanner_core::table::CheatTable;
+use mscout_core::table::CheatTable;
 
 #[tauri::command]
 pub fn save_table(path: String, table: CheatTable) -> Result<(), String> {
