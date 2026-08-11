@@ -98,6 +98,7 @@ html, body { height: 100%; margin: 0; overflow: hidden; }
 body { background: var(--bg); color: var(--fg); font-family: var(--font-body);
   font-size: 13px; font-weight: 500; line-height: var(--leading-body); -webkit-font-smoothing: antialiased; }
 button, input, select { font: inherit; color: inherit; }
+[hidden] { display: none !important; }
 .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 .icon { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none;
   stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
@@ -112,7 +113,7 @@ button, input, select { font: inherit; color: inherit; }
 .back-rail { border-right: 1px solid var(--border); padding: var(--space-4); display: grid; gap: 14px; align-content: start; }
 .ghost { height: 34px; border: 1px solid var(--border-soft); border-radius: var(--radius-sm); background: var(--surface-warm); }
 .ghost.lbl { height: 9px; width: 62px; border: 0; border-radius: var(--radius-pill); }
-.ghost.cta { background: color-mix(in oklab, var(--accent) 22%, var(--surface-warm)); border-color: transparent; height: 40px; }
+.ghost.cta { background: color-mix(in oklab, var(--fg) 14%, var(--surface-warm)); border-color: transparent; height: 40px; }
 .back-main { display: grid; grid-template-rows: 38px 1fr; }
 .back-sec { border-bottom: 1px solid var(--border); background: var(--surface-warm);
   display: flex; align-items: center; padding: 0 var(--space-4); font-size: var(--text-xs); font-weight: 700; }
@@ -308,8 +309,8 @@ tbody tr[aria-selected="true"] td { background: var(--sel); }
       <table id="tbl" hidden>
         <thead><tr>
           <th style="width:44px"><span class="sr">选择</span></th>
-          <th style="width:230px">基地址</th><th>偏移链</th>
-          <th style="width:196px">最终解析地址</th><th style="width:74px">深度</th>
+          <th style="width:210px">基地址</th><th>偏移链</th>
+          <th style="width:156px">最终解析地址</th><th style="width:60px">深度</th>
         </tr></thead>
         <tbody id="rows"></tbody>
       </table>

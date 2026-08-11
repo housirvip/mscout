@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MemScanner — VM 扫描</title>
+<style>
+:root {
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-warm: #f7f7f7;
+
+  --fg: #222222;
+  --fg-2: #3f3f3f;
+  --muted: #6a6a6a;
+  --meta: #929292;
+
+  --border: #dddddd;
+  --border-soft: #ebebeb;
+
+  --accent: #ff385c;
+  --accent-on: #ffffff;
+  --accent-hover: #e31c5f;
+  --accent-active: #e00b41;
+
+  --success: #008a05;
+  --warn: #c47700;
+  --danger: #c13515;
+
+  --font-display:
+    "Airbnb Cereal VF", "Airbnb Cereal App", Circular,
+    -apple-system, system-ui, "Helvetica Neue", Roboto, sans-serif;
+  --font-body:
+    "Airbnb Cereal VF", "Airbnb Cereal App", Circular,
+    -apple-system, system-ui, "Helvetica Neue", Roboto, sans-serif;
+  --font-mono:
+    ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Monaco,
+    Consolas, monospace;
+
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-base: 16px;
+  --text-lg: 20px;
+  --text-xl: 22px;
+  --text-2xl: 28px;
+  --text-3xl: 44px;
+  --text-4xl: 56px;
+
+  --leading-body: 1.43;
+  --leading-tight: 1.2;
+  --tracking-display: -0.02em;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+
+  --section-y-desktop: 64px;
+  --section-y-tablet: 48px;
+  --section-y-phone: 32px;
+
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-pill: 9999px;
+
+  --elev-flat: none;
+  --elev-ring: 0 0 0 1px var(--border);
+  --elev-raised:
+    rgba(0, 0, 0, 0.02) 0 0 0 1px,
+    rgba(0, 0, 0, 0.04) 0 2px 6px 0,
+    rgba(0, 0, 0, 0.1) 0 4px 8px 0;
+
+  --focus-ring: 0 0 0 2px var(--fg);
+
+  --motion-fast: 150ms;
+  --motion-base: 200ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+
+  --container-max: 1280px;
+  --container-gutter-desktop: 40px;
+  --container-gutter-tablet: 24px;
+  --container-gutter-phone: 16px;
+}
+:root {
+  --hover: color-mix(in oklab, var(--fg) 5%, var(--surface));
+  --pressed: color-mix(in oklab, var(--fg) 9%, var(--surface));
+  --sel: color-mix(in oklab, var(--fg) 8%, var(--surface));
+  --success-tint: color-mix(in oklab, var(--success) 10%, var(--surface));
+  --scrim: color-mix(in oklab, var(--fg) 46%, transparent);
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; overflow: hidden; }
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body);
+  font-size: 13px; font-weight: 500; line-height: var(--leading-body); -webkit-font-smoothing: antialiased; }
+button, input { font: inherit; color: inherit; }
+[hidden] { display: none !important; }
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.icon { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none;
+  stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.spacer { flex: 1 1 auto; }
+
+.back { position: fixed; inset: 0; display: grid; grid-template-rows: 56px 1fr; min-width: 960px; }
+.back-tb { display: flex; align-items: center; gap: var(--space-3); padding: 0 var(--space-4); border-bottom: 1px solid var(--border); }
+.back-body { display: grid; grid-template-columns: 300px 1fr; }
+.back-rail { border-right: 1px solid var(--border); padding: var(--space-4); display: grid; gap: 14px; align-content: start; }
+.ghost { height: 34px; border: 1px solid var(--border-soft); border-radius: var(--radius-sm); background: var(--surface-warm); }
+.ghost.lbl { height: 9px; width: 62px; border: 0; border-radius: var(--radius-pill); }
+.ghost.cta { background: color-mix(in oklab, var(--fg) 14%, var(--surface-warm)); border-color: transparent; height: 40px; }
+.back-sec { border-bottom: 1px solid var(--border); background: var(--surface-warm); height: 38px;
+  display: flex; align-items: center; padding: 0 var(--space-4); font-size: var(--text-xs); font-weight: 700; color: var(--muted); }
+
+.scrim { position: fixed; inset: 0; z-index: 60; background: var(--scrim); display: grid; place-items: center; padding: var(--space-6); }
+.modal { width: 700px; max-height: 82vh; display: flex; flex-direction: column; background: var(--surface);
+  border-radius: var(--radius-md); box-shadow: var(--elev-raised); overflow: hidden; }
+.modal-head { display: flex; align-items: flex-start; gap: var(--space-3); padding: var(--space-4) var(--space-5); border-bottom: 1px solid var(--border-soft); }
+.modal-head h1 { margin: 0; font-family: var(--font-display); font-size: var(--text-base); font-weight: 700; letter-spacing: -0.01em; }
+.modal-head p { margin: 3px 0 0; font-size: 11px; color: var(--muted); max-width: 54ch; }
+.btn-close { width: 32px; height: 32px; border-radius: var(--radius-pill); border: 1px solid var(--border);
+  background: var(--surface); display: grid; place-items: center; cursor: pointer; color: var(--fg); }
+.btn-close:hover { background: var(--hover); }
+.btn-close:active { transform: scale(0.92); }
+.btn-close:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+.steps { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-3) var(--space-5);
+  border-bottom: 1px solid var(--border); background: var(--surface-warm); }
+.step { display: flex; align-items: center; gap: 8px; font-size: var(--text-xs); color: var(--meta); }
+.step .num { width: 20px; height: 20px; border-radius: var(--radius-pill); display: grid; place-items: center;
+  font-size: 10px; font-weight: 700; border: 1px solid var(--border); background: var(--surface); color: var(--meta); }
+.step[data-state="active"] { color: var(--fg); font-weight: 700; }
+.step[data-state="active"] .num { background: var(--fg); border-color: var(--fg); color: var(--surface); }
+.step[data-state="done"] { color: var(--fg-2); }
+.step[data-state="done"] .num { background: var(--success-tint); border-color: color-mix(in oklab, var(--success) 40%, var(--border));
+  color: color-mix(in oklab, var(--success) 80%, var(--fg)); }
+.steps .rule { flex: 0 0 40px; height: 1px; background: var(--border); }
+
+.filters { display: flex; align-items: center; gap: 6px; padding: var(--space-3) var(--space-5) var(--space-2); }
+.chip { height: 28px; padding: 0 12px; border-radius: var(--radius-pill); border: 1px solid var(--border);
+  background: var(--surface); font-size: 11px; font-weight: 600; cursor: pointer;
+  transition: background var(--motion-fast) var(--ease-standard); }
+.chip:hover { background: var(--hover); border-color: color-mix(in oklab, var(--fg) 26%, var(--border)); }
+.chip:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.chip[aria-pressed="true"] { background: var(--fg); color: var(--surface); border-color: var(--fg); }
+.chip[aria-pressed="true"]:hover { background: var(--fg-2); border-color: var(--fg-2); color: var(--surface); }
+
+.search-wrap { position: relative; padding: var(--space-3) var(--space-5); border-bottom: 1px solid var(--border-soft); }
+.search-wrap .icon { position: absolute; left: calc(var(--space-5) + 10px); top: 50%; transform: translateY(-50%); color: var(--muted); }
+.control { height: 36px; width: 100%; padding: 0 10px; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); font-size: var(--text-xs); font-weight: 500; }
+.control:hover { border-color: color-mix(in oklab, var(--fg) 26%, var(--border)); }
+.control:focus-visible { outline: none; border-color: var(--fg); box-shadow: var(--focus-ring); }
+.search-in { padding-left: 34px; }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 36px; padding: 0 14px;
+  font-size: var(--text-xs); font-weight: 600; background: var(--surface); color: var(--fg);
+  border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; white-space: nowrap;
+  transition: background var(--motion-fast) var(--ease-standard), transform var(--motion-fast) var(--ease-standard); }
+.btn:hover { background: var(--hover); border-color: color-mix(in oklab, var(--fg) 26%, var(--border)); }
+.btn:active { background: var(--pressed); transform: scale(0.97); }
+.btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.btn[disabled] { background: var(--surface-warm); color: var(--meta); border-color: var(--border-soft); cursor: not-allowed; transform: none; }
+.btn-dark { background: var(--fg); color: var(--surface); border-color: var(--fg); }
+.btn-dark:hover { background: var(--fg-2); border-color: var(--fg-2); color: var(--surface); }
+.btn-dark[disabled] { background: var(--surface-warm); color: var(--meta); border-color: var(--border-soft); }
+.btn-primary { background: var(--accent); color: var(--accent-on); border-color: var(--accent); height: 40px; padding: 0 18px; font-size: var(--text-sm); }
+.btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: var(--accent-on); }
+.btn-primary:active { background: var(--accent-active); border-color: var(--accent-active); }
+
+.body { flex: 1 1 auto; overflow: auto; min-height: 230px; }
+.vm-list { display: grid; gap: var(--space-2); padding: var(--space-2) var(--space-5) var(--space-4); }
+.vm { display: grid; grid-template-columns: 34px 1fr auto; gap: var(--space-3); align-items: center;
+  padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-md);
+  background: var(--surface); cursor: pointer; text-align: left; width: 100%;
+  transition: background var(--motion-fast) var(--ease-standard), border-color var(--motion-fast) var(--ease-standard); }
+.vm:hover { background: var(--hover); border-color: color-mix(in oklab, var(--fg) 30%, var(--border)); }
+.vm:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.vm[aria-pressed="true"] { background: var(--sel); border-color: var(--fg); }
+.vm .glyph { width: 34px; height: 34px; border-radius: var(--radius-sm); background: var(--surface-warm);
+  border: 1px solid var(--border-soft); display: grid; place-items: center; color: var(--fg-2); }
+.vm h3 { margin: 0; font-size: var(--text-xs); font-weight: 700; }
+.vm .meta { font-size: 11px; color: var(--muted); font-family: var(--font-mono); }
+.pill { font-size: 10px; font-weight: 700; letter-spacing: 0.04em; padding: 3px 8px; border-radius: var(--radius-pill);
+  background: var(--success-tint); color: color-mix(in oklab, var(--success) 82%, var(--fg)); }
+.pill.idle { background: var(--surface-warm); color: var(--muted); }
+.tag { font-size: 10px; font-weight: 700; letter-spacing: 0.04em; color: var(--fg-2);
+  background: var(--surface-warm); border: 1px solid var(--border-soft); border-radius: 5px; padding: 2px 6px; }
+
+table { width: 100%; border-collapse: separate; border-spacing: 0; }
+thead th { position: sticky; top: 0; z-index: 2; text-align: left; background: var(--surface);
+  border-bottom: 1px solid var(--border); font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--muted); padding: 8px var(--space-5); white-space: nowrap; }
+tbody td { height: 29px; padding: 0 var(--space-5); border-bottom: 1px solid var(--border-soft);
+  font-size: var(--text-xs); white-space: nowrap; }
+tbody tr:hover td { background: var(--hover); }
+tbody tr[aria-selected="true"] td { background: var(--sel); }
+tbody tr[aria-selected="true"] td:first-child { box-shadow: inset 2px 0 0 var(--fg); }
+
+.state { display: grid; place-items: center; min-height: 250px; padding: var(--space-8); text-align: center; }
+.state-inner { max-width: 420px; display: grid; gap: var(--space-3); justify-items: center; }
+.state svg.big { width: 38px; height: 38px; stroke: var(--meta); fill: none; stroke-width: 1.4; }
+.state h2 { margin: 0; font-family: var(--font-display); font-size: var(--text-sm); font-weight: 700; }
+.state p { margin: 0; font-size: var(--text-xs); color: var(--muted); }
+.state ul { margin: 0; padding-left: 18px; text-align: left; font-size: 11px; color: var(--muted); display: grid; gap: 3px; }
+.spin { width: 26px; height: 26px; border-radius: var(--radius-pill);
+  border: 2px solid color-mix(in oklab, var(--fg) 14%, var(--surface)); border-top-color: var(--fg);
+  animation: spin 700ms linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.foot { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-5);
+  border-top: 1px solid var(--border); background: var(--surface-warm); }
+.foot .info { font-size: 11px; color: var(--muted); }
+.foot .info b { font-weight: 700; color: var(--fg); }
+
+.toasts { position: fixed; right: var(--space-4); bottom: var(--space-4); z-index: 90; display: grid; gap: var(--space-2); width: 316px; }
+.toast { display: flex; gap: 10px; padding: 11px 12px; background: var(--surface); border-radius: var(--radius-sm);
+  box-shadow: var(--elev-raised); align-items: flex-start; animation: slide-in var(--motion-base) var(--ease-standard); }
+@keyframes slide-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.toast.out { opacity: 0; transition: opacity var(--motion-base) var(--ease-standard); }
+.toast .txt { font-size: var(--text-xs); }
+.toast .txt em { display: block; font-style: normal; color: var(--muted); font-size: 11px; margin-top: 2px; }
+.toast[data-kind="success"] .icon { color: var(--success); }
+.toast[data-kind="error"] .icon { color: var(--danger); }
+.toast[data-kind="info"] .icon { color: var(--fg-2); }
+@media (prefers-reduced-motion: reduce) { * { animation-duration: 1ms !important; transition-duration: 1ms !important; } }
+</style>
+</head>
+<body>
+<svg class="sr" aria-hidden="true"><defs>
+<symbol id="i-cpu" viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="1.5"/><rect x="3.5" y="3.5" width="17" height="17" rx="2.5"/><path d="M10 3.5V1.6M14 3.5V1.6M10 22.4v-1.9M14 22.4v-1.9M3.5 10H1.6M3.5 14H1.6M22.4 10h-1.9M22.4 14h-1.9"/></symbol>
+<symbol id="i-vm" viewBox="0 0 24 24"><rect x="2.5" y="4.5" width="19" height="12" rx="2"/><path d="M8 20h8M12 16.5V20"/><path d="M10 8.6l4 2-4 2z"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.4 15.4 4.6 4.6"/></symbol>
+<symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v4.6h-4.6"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6"/><path d="m8.2 12.2 2.7 2.7 5-5.6"/></symbol>
+<symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6"/><path d="M12 7.8v5M12 16.1v.1"/></symbol>
+<symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6"/><path d="M12 11v5.2M12 7.9v.1"/></symbol>
+</defs></svg>
+
+<div class="back" aria-hidden="true" data-od-id="workbench-backdrop">
+  <div class="back-tb">
+    <svg class="icon" style="width:22px;height:22px"><use href="#i-cpu"/></svg>
+    <span style="font-family:var(--font-display);font-weight:700;font-size:var(--text-sm)">MemScanner</span>
+    <div class="ghost" style="width:244px;margin-left:8px;border-style:dashed"></div>
+    <span class="spacer"></span><div class="ghost" style="width:96px"></div><div class="ghost" style="width:88px"></div>
+  </div>
+  <div class="back-body">
+    <div class="back-rail">
+      <div class="ghost lbl"></div><div class="ghost"></div>
+      <div class="ghost lbl"></div><div class="ghost"></div>
+      <div class="ghost lbl"></div><div class="ghost"></div>
+      <div class="ghost cta"></div>
+    </div>
+    <div><div class="back-sec">扫描结果 · 尚无匹配</div></div>
+  </div>
+</div>
+
+<div class="scrim">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="ttl" data-od-id="vm-scan-modal">
+    <div class="modal-head">
+      <svg class="icon" style="margin-top:2px"><use href="#i-vm"/></svg>
+      <div>
+        <h1 id="ttl">VM 扫描</h1>
+        <p id="sub">直接读取虚拟机的物理内存，无需在客户机内安装任何组件。附加后扫描流程与本地进程完全一致。</p>
+      </div>
+      <span class="spacer"></span>
+      <button class="btn-close" id="close" title="关闭"><svg class="icon"><use href="#i-x"/></svg><span class="sr">关闭</span></button>
+    </div>
+
+    <div class="steps" data-od-id="vm-steps">
+      <span class="step" id="s1" data-state="active"><span class="num">1</span>选择虚拟机</span>
+      <span class="rule"></span>
+      <span class="step" id="s2" data-state="idle"><span class="num">2</span>选择客户机进程</span>
+    </div>
+
+    <!-- ── step 1 ─────────────────────────────────────────── -->
+    <div id="step1">
+      <div class="filters" data-od-id="vm-type-filters">
+        <button class="chip" aria-pressed="true" data-type="all">全部</button>
+        <button class="chip" aria-pressed="false" data-type="VMware">VMware</button>
+        <button class="chip" aria-pressed="false" data-type="Hyper-V">Hyper-V</button>
+        <button class="chip" aria-pressed="false" data-type="QEMU">QEMU / KVM</button>
+        <span class="spacer"></span>
+        <button class="btn" id="redetect" style="height:28px;font-size:11px">
+          <svg class="icon" style="width:13px;height:13px"><use href="#i-refresh"/></svg>重新检测
+        </button>
+      </div>
+      <div class="body">
+        <div class="vm-list" id="vmList"></div>
+        <div class="state" id="vmEmpty" hidden data-od-id="vm-empty-state">
+          <div class="state-inner">
+            <svg class="big"><use href="#i-vm"/></svg>
+            <h2 id="emptyTitle">未检测到可用的虚拟机</h2>
+            <p>MemScanner 通过宿主上的虚拟机监控进程读取客户机物理内存，请确认：</p>
+            <ul>
+              <li>虚拟机已启动并处于运行中状态（挂起状态无法读取内存）</li>
+              <li>宿主上存在 vmware-vmx / vmmem 等监控进程</li>
+              <li>MemScanner 以管理员或 root 权限运行</li>
+            </ul>
+            <button class="btn" id="emptyRetry">重新检测</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── step 2 ─────────────────────────────────────────── -->
+    <div id="step2" hidden style="display:flex;flex-direction:column;flex:1 1 auto;min-height:0">
+      <div class="search-wrap">
+        <svg class="icon"><use href="#i-search"/></svg>
+        <input class="control search-in" id="guestSearch" placeholder="在客户机进程中按名称或 PID 过滤…" data-od-id="guest-search">
+      </div>
+      <div class="body" id="guestBody">
+        <div class="state" id="kernelLoading" data-od-id="guest-loading-state">
+          <div class="state-inner">
+            <div class="spin"></div>
+            <h2>正在扫描客户机内核…</h2>
+            <p class="mono" id="kernelMeta">定位 KPCR 与 EPROCESS 链表</p>
+          </div>
+        </div>
+        <table id="guestTbl" hidden>
+          <thead><tr><th style="width:96px">PID</th><th>进程名</th><th style="width:84px">架构</th><th style="width:116px">工作集</th></tr></thead>
+          <tbody id="guestRows"></tbody>
+        </table>
+        <div class="state" id="guestNoMatch" hidden style="min-height:150px">
+          <div class="state-inner"><p>没有匹配的客户机进程。</p></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="foot">
+      <span class="info" id="footInfo">已在宿主上检测到 <b>3</b> 台虚拟机</span>
+      <span class="spacer"></span>
+      <button class="btn" id="backBtn" hidden>返回上一步</button>
+      <button class="btn" id="cancel">取消</button>
+      <button class="btn btn-primary" id="next" disabled data-od-id="cta-vm-next">附加到虚拟机</button>
+    </div>
+  </div>
+</div>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const VMS = [
+  { id: 'vm1', name: 'Windows 11 Dev', type: 'VMware', host: 15332, mem: '8 GB', vcpu: 4, state: '运行中', guest: 'Windows 11 23H2 · x64' },
+  { id: 'vm2', name: 'Win10-Gaming', type: 'VMware', host: 15410, mem: '16 GB', vcpu: 8, state: '运行中', guest: 'Windows 10 22H2 · x64' },
+  { id: 'vm3', name: 'Server2022-Lab', type: 'Hyper-V', host: 4180, mem: '4 GB', vcpu: 2, state: '已挂起', guest: 'Windows Server 2022 · x64' },
+];
+const GUESTS = [
+  { pid: 4188, name: 'eldenring.exe', arch: 'x64', mem: '2.4 GB' },
+  { pid: 3312, name: 'start_protected_game.exe', arch: 'x64', mem: '64 MB' },
+  { pid: 5124, name: 'DarkSoulsIII.exe', arch: 'x64', mem: '1.6 GB' },
+  { pid: 812, name: 'csrss.exe', arch: 'x64', mem: '6 MB' },
+  { pid: 1044, name: 'winlogon.exe', arch: 'x64', mem: '9 MB' },
+  { pid: 2280, name: 'explorer.exe', arch: 'x64', mem: '128 MB' },
+  { pid: 6708, name: 'steam.exe', arch: 'x86', mem: '164 MB' },
+  { pid: 7412, name: 'GameOverlayUI.exe', arch: 'x86', mem: '22 MB' },
+  { pid: 9130, name: 'notepad.exe', arch: 'x64', mem: '14 MB' },
+  { pid: 1620, name: 'MsMpEng.exe', arch: 'x64', mem: '212 MB' },
+];
+
+let filter = 'all', pickedVm = null, pickedGuest = null, step = 1;
+
+function toast(kind, title, sub) {
+  const el = document.createElement('div');
+  el.className = 'toast'; el.dataset.kind = kind;
+  const icon = kind === 'success' ? 'i-check' : kind === 'error' ? 'i-alert' : 'i-info';
+  el.innerHTML = `<svg class="icon"><use href="#${icon}"/></svg><div class="txt">${title}${sub ? `<em>${sub}</em>` : ''}</div>`;
+  $('toasts').append(el);
+  setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 220); }, 3200);
+}
+
+function renderVms() {
+  const list = VMS.filter(v => filter === 'all' || v.type === filter);
+  $('vmList').innerHTML = list.map(v => `
+    <button class="vm" data-id="${v.id}" aria-pressed="${pickedVm === v.id}" data-od-id="vm-card-${v.id}">
+      <span class="glyph"><svg class="icon"><use href="#i-vm"/></svg></span>
+      <span>
+        <h3>${v.name} <span class="tag">${v.type}</span></h3>
+        <span class="meta">宿主 PID ${v.host} · ${v.vcpu} vCPU · ${v.mem} · ${v.guest}</span>
+      </span>
+      <span class="pill ${v.state === '运行中' ? '' : 'idle'}">${v.state}</span>
+    </button>`).join('');
+  $('vmEmpty').hidden = list.length > 0;
+  $('emptyTitle').textContent = filter === 'all'
+    ? '未检测到可用的虚拟机'
+    : `未检测到 ${filter} 虚拟机`;
+  $('footInfo').innerHTML = list.length
+    ? `已在宿主上检测到 <b>${list.length}</b> 台虚拟机${filter === 'all' ? '' : `（${filter}）`}`
+    : `当前筛选条件下没有可附加的虚拟机`;
+  $('next').disabled = !pickedVm;
+}
+
+document.querySelectorAll('.chip').forEach(c => c.onclick = () => {
+  document.querySelectorAll('.chip').forEach(x => x.setAttribute('aria-pressed', String(x === c)));
+  filter = c.dataset.type; pickedVm = null; renderVms();
+});
+$('vmList').addEventListener('click', (e) => {
+  const b = e.target.closest('.vm'); if (!b) return;
+  const vm = VMS.find(v => v.id === b.dataset.id);
+  if (vm.state !== '运行中') { toast('error', `${vm.name} 处于${vm.state}状态`, '挂起或关机的虚拟机无法读取内存，请先恢复运行'); return; }
+  pickedVm = vm.id; renderVms();
+});
+$('vmList').addEventListener('dblclick', (e) => { if (e.target.closest('.vm') && pickedVm) toStep2(); });
+$('redetect').onclick = $('emptyRetry').onclick = () => {
+  pickedVm = null; renderVms(); toast('info', '已重新检测宿主虚拟机', '扫描 vmware-vmx / vmmem 监控进程');
+};
+
+function toStep2() {
+  const vm = VMS.find(v => v.id === pickedVm); if (!vm) return;
+  step = 2;
+  $('step1').hidden = true; $('step2').hidden = false;
+  $('s1').dataset.state = 'done'; $('s2').dataset.state = 'active';
+  $('sub').textContent = `已附加 ${vm.name}（${vm.type} · 宿主 PID ${vm.host}）。选择客户机内的目标进程后回到主界面，扫描操作与本地进程一致。`;
+  $('backBtn').hidden = false;
+  $('next').disabled = true; $('next').textContent = '附加客户机进程';
+  $('kernelLoading').hidden = false; $('guestTbl').hidden = true;
+  $('footInfo').innerHTML = `虚拟机 <b>${vm.name}</b> · 正在解析客户机内核`;
+  const stages = ['定位 KPCR 与 EPROCESS 链表', '解析客户机页表（CR3 遍历）', '枚举客户机进程'];
+  let i = 0;
+  const t = setInterval(() => {
+    i++; $('kernelMeta').textContent = stages[Math.min(i, stages.length - 1)];
+    if (i >= stages.length) { clearInterval(t); showGuests(vm); }
+  }, 620);
+}
+function showGuests(vm) {
+  $('kernelLoading').hidden = true; $('guestTbl').hidden = false;
+  renderGuests();
+  toast('success', `已附加 ${vm.name}`, `解析出 ${GUESTS.length} 个客户机进程`);
+}
+function renderGuests() {
+  const q = $('guestSearch').value.trim().toLowerCase();
+  const list = GUESTS.filter(g => !q || g.name.toLowerCase().includes(q) || String(g.pid).includes(q));
+  $('guestRows').innerHTML = list.map(g => `
+    <tr data-pid="${g.pid}" aria-selected="${pickedGuest === g.pid}">
+      <td class="mono" style="color:var(--muted)">${g.pid}</td><td>${g.name}</td>
+      <td><span class="tag">${g.arch}</span></td><td class="mono" style="color:var(--muted)">${g.mem}</td>
+    </tr>`).join('');
+  $('guestNoMatch').hidden = list.length > 0;
+  $('guestTbl').hidden = list.length === 0;
+  const vm = VMS.find(v => v.id === pickedVm);
+  $('footInfo').innerHTML = `虚拟机 <b>${vm.name}</b> · ${list.length} / ${GUESTS.length} 个客户机进程`;
+  $('next').disabled = !pickedGuest;
+}
+$('guestSearch').oninput = renderGuests;
+$('guestRows').addEventListener('click', (e) => {
+  const tr = e.target.closest('tr'); if (!tr) return;
+  pickedGuest = Number(tr.dataset.pid); renderGuests();
+});
+$('guestRows').addEventListener('dblclick', (e) => {
+  const tr = e.target.closest('tr'); if (tr) { pickedGuest = Number(tr.dataset.pid); confirmAttach(); }
+});
+
+function confirmAttach() {
+  const vm = VMS.find(v => v.id === pickedVm), g = GUESTS.find(x => x.pid === pickedGuest);
+  if (!g) return;
+  toast('success', `已附加客户机进程 ${g.name}`, `${vm.name} · PID ${g.pid} · 正在返回工作台`);
+  setTimeout(() => location.href = 'scan-workbench.html', 1000);
+}
+$('next').onclick = () => { step === 1 ? toStep2() : confirmAttach(); };
+$('backBtn').onclick = () => {
+  step = 1; pickedGuest = null;
+  $('step1').hidden = false; $('step2').hidden = true; $('backBtn').hidden = true;
+  $('s1').dataset.state = 'active'; $('s2').dataset.state = 'idle';
+  $('next').textContent = '附加到虚拟机';
+  $('sub').textContent = '直接读取虚拟机的物理内存，无需在客户机内安装任何组件。附加后扫描流程与本地进程完全一致。';
+  renderVms();
+};
+$('cancel').onclick = $('close').onclick = () => location.href = 'scan-workbench.html';
+addEventListener('keydown', (e) => { if (e.key === 'Escape') location.href = 'scan-workbench.html'; });
+
+renderVms();
+</script>
+</body>
+</html>

@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MemScanner — UI 原型总览</title>
+<style>
+:root {
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-warm: #f7f7f7;
+
+  --fg: #222222;
+  --fg-2: #3f3f3f;
+  --muted: #6a6a6a;
+  --meta: #929292;
+
+  --border: #dddddd;
+  --border-soft: #ebebeb;
+
+  --accent: #ff385c;
+  --accent-on: #ffffff;
+  --accent-hover: #e31c5f;
+  --accent-active: #e00b41;
+
+  --success: #008a05;
+  --warn: #c47700;
+  --danger: #c13515;
+
+  --font-display:
+    "Airbnb Cereal VF", "Airbnb Cereal App", Circular,
+    -apple-system, system-ui, "Helvetica Neue", Roboto, sans-serif;
+  --font-body:
+    "Airbnb Cereal VF", "Airbnb Cereal App", Circular,
+    -apple-system, system-ui, "Helvetica Neue", Roboto, sans-serif;
+  --font-mono:
+    ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Monaco,
+    Consolas, monospace;
+
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-base: 16px;
+  --text-lg: 20px;
+  --text-xl: 22px;
+  --text-2xl: 28px;
+  --text-3xl: 44px;
+  --text-4xl: 56px;
+
+  --leading-body: 1.43;
+  --leading-tight: 1.2;
+  --tracking-display: -0.02em;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+
+  --section-y-desktop: 64px;
+  --section-y-tablet: 48px;
+  --section-y-phone: 32px;
+
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-pill: 9999px;
+
+  --elev-flat: none;
+  --elev-ring: 0 0 0 1px var(--border);
+  --elev-raised:
+    rgba(0, 0, 0, 0.02) 0 0 0 1px,
+    rgba(0, 0, 0, 0.04) 0 2px 6px 0,
+    rgba(0, 0, 0, 0.1) 0 4px 8px 0;
+
+  --focus-ring: 0 0 0 2px var(--fg);
+
+  --motion-fast: 150ms;
+  --motion-base: 200ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+
+  --container-max: 1280px;
+  --container-gutter-desktop: 40px;
+  --container-gutter-tablet: 24px;
+  --container-gutter-phone: 16px;
+}
+:root {
+  --hover: color-mix(in oklab, var(--fg) 5%, var(--surface));
+  --pressed: color-mix(in oklab, var(--fg) 9%, var(--surface));
+  --accent-tint: color-mix(in oklab, var(--accent) 12%, var(--surface));
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font-body);
+  font-size: var(--text-sm); font-weight: 500; line-height: var(--leading-body); -webkit-font-smoothing: antialiased; }
+a { color: inherit; }
+.wrap { max-width: 1080px; margin: 0 auto; padding: var(--section-y-desktop) var(--container-gutter-desktop) var(--space-12); }
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.icon { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+
+.eyebrow { display: inline-flex; align-items: center; gap: 7px; font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.09em; color: var(--accent-active);
+  background: var(--accent-tint); border-radius: var(--radius-pill); padding: 5px 11px; }
+h1 { font-family: var(--font-display); font-size: 40px; font-weight: 700; letter-spacing: -0.025em;
+  line-height: var(--leading-tight); margin: var(--space-4) 0 var(--space-3); max-width: 22ch; }
+.lede { font-size: var(--text-base); color: var(--muted); max-width: 62ch; margin: 0; }
+.meta-row { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-5); margin-top: var(--space-5);
+  font-size: var(--text-xs); color: var(--muted); }
+.meta-row b { color: var(--fg); font-weight: 600; }
+
+h2 { font-family: var(--font-display); font-size: var(--text-xl); font-weight: 500;
+  letter-spacing: -0.02em; line-height: 1.18; margin: 0 0 var(--space-2); }
+section { margin-top: var(--space-12); }
+.sec-note { margin: 0 0 var(--space-5); font-size: var(--text-xs); color: var(--muted); max-width: 66ch; }
+
+.cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-5); }
+.card { display: flex; flex-direction: column; gap: var(--space-3); text-decoration: none;
+  border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden;
+  background: var(--surface); transition: border-color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-base) var(--ease-standard); }
+.card:hover { border-color: color-mix(in oklab, var(--fg) 34%, var(--border)); box-shadow: var(--elev-raised); }
+.card:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.card-body { padding: 0 var(--space-4) var(--space-4); display: grid; gap: 6px; }
+.card h3 { margin: 0; font-family: var(--font-display); font-size: var(--text-base); font-weight: 700; letter-spacing: -0.01em; }
+.card p { margin: 0; font-size: var(--text-xs); color: var(--muted); }
+.card .tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
+.tag { font-size: 10px; font-weight: 600; letter-spacing: 0.02em; color: var(--fg-2);
+  background: var(--surface-warm); border: 1px solid var(--border-soft); border-radius: 5px; padding: 3px 7px; }
+
+/* layout schematic — a map of the screen, drawn from tokens */
+.schema { aspect-ratio: 16 / 10; background: var(--surface-warm); border-bottom: 1px solid var(--border-soft);
+  padding: 8px; display: grid; grid-template-rows: 13px 1fr; gap: 5px; }
+.schema .tb { height: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; }
+.schema .split { display: grid; grid-template-columns: 26% 1fr; gap: 5px; min-height: 0; }
+.schema .rail { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 5px; display: grid; gap: 4px; align-content: start; }
+.schema .rail i { display: block; height: 6px; background: var(--surface-warm); border-radius: 2px; }
+.schema .rail i.cta { background: color-mix(in oklab, var(--fg) 24%, var(--surface)); height: 9px; margin-top: 3px; }
+.schema .stack { display: grid; grid-template-rows: 1fr 34%; gap: 5px; min-height: 0; }
+.schema .pane { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 5px; display: grid; gap: 3px; align-content: start; }
+.schema .pane i { display: block; height: 4px; background: var(--surface-warm); border-radius: 2px; }
+.schema .pane i.hl { background: color-mix(in oklab, var(--fg) 16%, var(--surface)); }
+.schema.dialog { position: relative; }
+.schema.dialog .veil { position: absolute; inset: 0; background: color-mix(in oklab, var(--fg) 30%, transparent); }
+.schema .sheet { position: absolute; inset: 22% 12%; background: var(--surface); border-radius: 7px;
+  box-shadow: var(--elev-raised); padding: 7px; display: grid; gap: 4px; align-content: start; }
+.schema .sheet i { display: block; height: 5px; background: var(--surface-warm); border-radius: 2px; }
+.schema .sheet i.head { height: 8px; width: 45%; background: color-mix(in oklab, var(--fg) 20%, var(--surface)); }
+.schema .sheet i.cta { height: 8px; width: 28%; background: color-mix(in oklab, var(--fg) 24%, var(--surface)); justify-self: end; margin-top: 3px; }
+.schema .drawer { position: absolute; top: 8px; right: 8px; bottom: 8px; width: 34%;
+  background: var(--surface); border-radius: 5px; box-shadow: var(--elev-raised); padding: 6px; display: grid; gap: 3px; align-content: start; }
+.schema .drawer i { display: block; height: 4px; background: var(--surface-warm); border-radius: 2px; }
+
+.btn-row { display: flex; align-items: center; gap: var(--space-3); margin-top: var(--space-6); flex-wrap: wrap; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 40px; padding: 0 18px;
+  font-size: var(--text-sm); font-weight: 600; text-decoration: none; background: var(--surface); color: var(--fg);
+  border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer;
+  transition: background var(--motion-fast) var(--ease-standard), transform var(--motion-fast) var(--ease-standard); }
+.btn:hover { background: var(--hover); border-color: color-mix(in oklab, var(--fg) 28%, var(--border)); }
+.btn:active { background: var(--pressed); transform: scale(0.97); }
+.btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.btn-primary { background: var(--accent); color: var(--accent-on); border-color: var(--accent); }
+.btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: var(--accent-on); }
+.btn-primary:active { background: var(--accent-active); border-color: var(--accent-active); }
+
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-6) var(--space-8); }
+.spec { border-top: 1px solid var(--border); }
+.spec-row { display: grid; grid-template-columns: 132px 1fr; gap: var(--space-4);
+  padding: var(--space-4) 0; border-bottom: 1px solid var(--border-soft); align-items: start; }
+.spec-row dt { font-size: var(--text-xs); font-weight: 700; color: var(--muted); margin: 0; }
+.spec-row dd { margin: 0; font-size: var(--text-xs); color: var(--fg-2); }
+.spec-row dd b { color: var(--fg); font-weight: 600; }
+.swatches { display: flex; gap: var(--space-2); margin-top: 8px; flex-wrap: wrap; }
+.sw { display: grid; gap: 5px; justify-items: center; font-size: 10px; color: var(--muted); }
+.sw span.chip { width: 46px; height: 26px; border-radius: 6px; border: 1px solid var(--border); display: block; }
+
+ul.checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 9px; }
+ul.checks li { display: grid; grid-template-columns: 16px 1fr; gap: 9px; font-size: var(--text-xs); color: var(--fg-2); }
+ul.checks svg { color: var(--success); margin-top: 1px; }
+table.keys { width: 100%; border-collapse: collapse; }
+table.keys td { padding: 8px 0; border-bottom: 1px solid var(--border-soft); font-size: var(--text-xs); }
+table.keys td:first-child { width: 96px; }
+kbd { font-family: var(--font-mono); font-size: 10px; font-weight: 600; padding: 3px 6px;
+  border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 5px; color: var(--muted); }
+
+footer { margin-top: var(--space-12); padding-top: var(--space-5); border-top: 1px solid var(--border);
+  font-size: 11px; color: var(--meta); display: flex; gap: var(--space-5); flex-wrap: wrap; }
+
+@media (max-width: 900px) {
+  .wrap { padding: var(--section-y-tablet) var(--container-gutter-tablet) var(--space-8); }
+  .cards, .grid-2 { grid-template-columns: 1fr; }
+  h1 { font-size: 30px; letter-spacing: -0.02em; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition-duration: 1ms !important; } }
+</style>
+</head>
+<body>
+<svg style="position:absolute;width:0;height:0" aria-hidden="true"><defs>
+<symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.6"/><path d="m8.2 12.2 2.7 2.7 5-5.6"/></symbol>
+<symbol id="i-cpu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="7" width="10" height="10" rx="1.5"/><rect x="3.5" y="3.5" width="17" height="17" rx="2.5"/><path d="M10 3.5V1.6M14 3.5V1.6M10 22.4v-1.9M14 22.4v-1.9M3.5 10H1.6M3.5 14H1.6M22.4 10h-1.9M22.4 14h-1.9"/></symbol>
+</defs></svg>
+
+<div class="wrap">
+  <header data-od-id="overview-hero">
+    <span class="eyebrow"><svg class="icon" style="width:12px;height:12px"><use href="#i-cpu"/></svg>MemScanner · UI 原型 v0.4</span>
+    <h1>一个窗口装下「搜索 → 改变 → 再搜索」的全过程</h1>
+    <p class="lede">跨平台内存扫描与修改工具的桌面端界面原型。三个可交互页面覆盖主工作流与两个模态流程，全部按 1200×800 默认窗口、960px 最小宽度设计，含空状态、扫描中、结果收敛、冻结与置顶紧凑五类状态。</p>
+    <div class="meta-row">
+      <span><b>3</b> 个页面</span>
+      <span><b>6</b> 个功能模块</span>
+      <span><b>6</b> 组快捷键</span>
+      <span>默认窗口 <b class="mono">1200 × 800</b></span>
+      <span>最小宽度 <b class="mono">960px</b></span>
+    </div>
+    <div class="btn-row">
+      <a class="btn btn-primary" href="scan-workbench.html" data-od-id="cta-open-workbench">打开扫描工作台</a>
+      <a class="btn" href="pointer-scan.html">查看指针扫描</a>
+      <a class="btn" href="vm-scan.html">查看 VM 扫描</a>
+    </div>
+  </header>
+
+  <section data-od-id="screens">
+    <h2>页面</h2>
+    <p class="sec-note">主工作台是常驻界面，进程选择、内存查看器、右键菜单、Toast 与全部快捷键都在其中直接可用；指针扫描与 VM 扫描是从工作台唤起的模态流程，各自独立成页以便单独评审。</p>
+    <div class="cards">
+      <a class="card" href="scan-workbench.html" data-od-id="screen-card-workbench">
+        <div class="schema" aria-hidden="true">
+          <div class="tb"></div>
+          <div class="split">
+            <div class="rail"><i></i><i></i><i></i><i></i><i class="cta"></i></div>
+            <div class="stack">
+              <div class="pane"><i class="hl"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+              <div class="pane"><i class="hl"></i><i></i><i></i></div>
+            </div>
+          </div>
+        </div>
+        <div class="card-body">
+          <h3>扫描工作台</h3>
+          <p>四区常驻布局：工具栏 / 扫描控制 / 扫描结果 / 地址表。含进程选择弹窗、Hex 抽屉、两张表的右键菜单与置顶紧凑模式。</p>
+          <div class="tags"><span class="tag">主界面</span><span class="tag">进程弹窗</span><span class="tag">Hex 查看器</span><span class="tag">Toast</span><span class="tag">快捷键</span></div>
+        </div>
+      </a>
+
+      <a class="card" href="pointer-scan.html" data-od-id="screen-card-pointer">
+        <div class="schema dialog" aria-hidden="true">
+          <div class="tb"></div>
+          <div class="split">
+            <div class="rail"><i></i><i></i><i></i><i class="cta"></i></div>
+            <div class="stack"><div class="pane"><i></i><i></i><i></i><i></i><i></i></div><div class="pane"><i></i></div></div>
+          </div>
+          <div class="veil"></div>
+          <div class="sheet"><i class="head"></i><i></i><i></i><i></i><i class="cta"></i></div>
+        </div>
+        <div class="card-body">
+          <h3>指针扫描</h3>
+          <p>目标地址、最大深度（1–7）、最大偏移量三项输入，扫描中显示深度进度，结果以偏移链形式呈现，可多选加入地址表。</p>
+          <div class="tags"><span class="tag">模态</span><span class="tag">加载态</span><span class="tag">偏移链</span><span class="tag">多选</span></div>
+        </div>
+      </a>
+
+      <a class="card" href="vm-scan.html" data-od-id="screen-card-vm">
+        <div class="schema dialog" aria-hidden="true">
+          <div class="tb"></div>
+          <div class="split">
+            <div class="rail"><i></i><i></i><i></i><i class="cta"></i></div>
+            <div class="stack"><div class="pane"><i></i><i></i><i></i></div><div class="pane"><i></i></div></div>
+          </div>
+          <div class="veil"></div>
+          <div class="sheet"><i class="head"></i><i></i><i></i><i></i><i></i><i class="cta"></i></div>
+        </div>
+        <div class="card-body">
+          <h3>VM 扫描</h3>
+          <p>两步流程：先按类型筛选宿主上检测到的虚拟机，再解析客户机内核并列出进程；含挂起虚拟机与「未检测到」两种失败路径。</p>
+          <div class="tags"><span class="tag">两步流程</span><span class="tag">空状态</span><span class="tag">内核解析</span><span class="tag">搜索过滤</span></div>
+        </div>
+      </a>
+    </div>
+  </section>
+
+  <section class="grid-2" data-od-id="design-spec">
+    <div>
+      <h2>视觉与密度</h2>
+      <p class="sec-note">高密度不等于拥挤：分区靠 1px 细线、对齐靠等宽数字，阴影只用于浮层。</p>
+      <dl class="spec">
+        <div class="spec-row"><dt>画布</dt><dd>Canvas White 主画布 + Soft Cloud 分区底色；所有区隔由 <b>Hairline Gray 1px</b> 完成，表格与面板一律不加阴影。</dd></div>
+        <div class="spec-row"><dt>强调色</dt><dd>Rausch 珊瑚色<b>全屏最多出现两次</b>：主扫描按钮与匹配总数（小字改用 Deep Rausch 以满足 4.5:1）。冻结用语义绿，数值变动用加深的琥珀色。
+          <div class="swatches">
+            <span class="sw"><span class="chip" style="background:var(--accent)"></span>Rausch</span>
+            <span class="sw"><span class="chip" style="background:var(--fg)"></span>Ink Black</span>
+            <span class="sw"><span class="chip" style="background:var(--surface-warm)"></span>Soft Cloud</span>
+            <span class="sw"><span class="chip" style="background:var(--success)"></span>冻结</span>
+            <span class="sw"><span class="chip" style="background:var(--warn)"></span>已变化</span>
+          </div>
+        </dd></div>
+        <div class="spec-row"><dt>字体</dt><dd>UI 单字族 Airbnb Cereal VF（正文 500 重量）；地址、数值、十六进制与偏移链全部走等宽栈并开 <b class="mono">tabular-nums</b>，列对齐即结构。10px 大写标签统一 0.08em 字距。</dd></div>
+        <div class="spec-row"><dt>密度</dt><dd>表格行高 <b class="mono">27px</b>，置顶紧凑模式压到 <b class="mono">22px</b>；控件高 34px、主 CTA 40px；数据组内间距 4–8px，区块之间 16–24px。</dd></div>
+      </dl>
+    </div>
+
+    <div>
+      <h2>布局与状态</h2>
+      <p class="sec-note">用户会不停切回游戏窗口，因此不做页面跳转，所有操作路径不超过两步。</p>
+      <dl class="spec">
+        <div class="spec-row"><dt>骨架</dt><dd>顶部 56px 工具栏 · 左侧 <b class="mono">300px</b> 扫描控制常驻全高 · 中央扫描结果 · 底部 <b class="mono">236px</b> 地址表。</dd></div>
+        <div class="spec-row"><dt>Hex 查看器</dt><dd>右侧 428px 浮层抽屉，从结果表或地址表右键唤起，不打断主流程；每行 16 字节 + ASCII，1 秒自动刷新。</dd></div>
+        <div class="spec-row"><dt>百万级结果</dt><dd>每页 200 条窗口化渲染 + 页码跳转，只渲染当前页 DOM；总匹配数与页范围常驻显示。</dd></div>
+        <div class="spec-row"><dt>置顶紧凑</dt><dd>工具栏折到 44px、行高降到 22px、按钮收成图标，便于与游戏窗口并排。</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <section class="grid-2" data-od-id="coverage">
+    <div>
+      <h2>已覆盖的交互</h2>
+      <ul class="checks">
+        <li><svg class="icon"><use href="#i-check"/></svg>未附加空状态引导 → 进程搜索 → 附加就绪，差异条件在首次扫描后才解锁</li>
+        <li><svg class="icon"><use href="#i-check"/></svg>数据类型切换到字节数组时，值输入框改为十六进制模式串（含通配 <span class="mono">??</span>）</li>
+        <li><svg class="icon"><use href="#i-check"/></svg>范围条件出双输入框，未知初始值 / 已改变等条件自动隐藏输入</li>
+        <li><svg class="icon"><use href="#i-check"/></svg>扫描进度条按区域数推进；再次扫描逐轮收敛并保留撤销栈</li>
+        <li><svg class="icon"><use href="#i-check"/></svg>地址表每 500ms 刷新，冻结行数值锁定，双击改值 / 双击重命名</li>
+        <li><svg class="icon"><use href="#i-check"/></svg>Cheat Table 存取写入 localStorage，重开页面可恢复</li>
+        <li><svg class="icon"><use href="#i-check"/></svg>成功 / 错误 / 信息三类 Toast，右下角数秒后自动消失</li>
+      </ul>
+    </div>
+    <div>
+      <h2>快捷键</h2>
+      <table class="keys">
+        <tbody>
+          <tr><td><kbd>F5</kbd></td><td>首次扫描</td></tr>
+          <tr><td><kbd>F6</kbd></td><td>再次扫描（在上一轮结果内过滤）</td></tr>
+          <tr><td><kbd>⌘/Ctrl Z</kbd></td><td>撤销上一次过滤</td></tr>
+          <tr><td><kbd>⌘/Ctrl N</kbd></td><td>打开进程列表</td></tr>
+          <tr><td><kbd>⌘/Ctrl S</kbd></td><td>保存 Cheat Table</td></tr>
+          <tr><td><kbd>⌘/Ctrl O</kbd></td><td>加载 Cheat Table</td></tr>
+          <tr><td><kbd>Esc</kbd></td><td>关闭弹窗 / 抽屉 / 右键菜单</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer>
+    <span>原型数据为演示用示例值，非真实内存读数。</span>
+    <span>对标 Cheat Engine 工作流 · macOS / Windows / Linux</span>
+  </footer>
+</div>
+</body>
+</html>

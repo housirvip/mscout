@@ -111,13 +111,10 @@ body {
   overflow: hidden;
 }
 button, input, select { font: inherit; color: inherit; }
+[hidden] { display: none !important; }
 ::selection { background: var(--sel); }
 
 .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
-.eyebrow {
-  font-size: 10px; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 0.09em; color: var(--muted);
-}
 .icon { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none;
   stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
@@ -225,7 +222,8 @@ select.control { appearance: none; padding-right: 28px; cursor: pointer;
   cursor: pointer; transition: background var(--motion-fast) var(--ease-standard); }
 .switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px;
   border-radius: var(--radius-pill); background: var(--surface);
-  box-shadow: rgba(0,0,0,.18) 0 1px 3px; transition: transform var(--motion-fast) var(--ease-standard); }
+  border: 1px solid color-mix(in oklab, var(--fg) 12%, var(--surface));
+  transition: transform var(--motion-fast) var(--ease-standard); }
 .switch[aria-checked="true"] { background: var(--fg); }
 .switch[aria-checked="true"]::after { transform: translateX(14px); }
 .switch:focus-visible { outline: none; box-shadow: var(--focus-ring); }
@@ -240,7 +238,8 @@ select.control { appearance: none; padding-right: 28px; cursor: pointer;
 .track { height: 4px; border-radius: var(--radius-pill); background: color-mix(in oklab, var(--fg) 10%, var(--surface)); overflow: hidden; }
 .bar { height: 100%; width: 0%; background: var(--fg); border-radius: var(--radius-pill);
   transition: width 120ms linear; }
-.shortcut-strip { display: flex; flex-wrap: wrap; gap: 6px 10px; font-size: 11px; color: var(--muted);
+.shortcut-strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px 8px;
+  font-size: 11px; color: var(--muted);
   border-top: 1px solid var(--border-soft); padding-top: var(--space-3); }
 .shortcut-strip span { display: inline-flex; align-items: center; gap: 5px; }
 
@@ -251,7 +250,7 @@ select.control { appearance: none; padding-right: 28px; cursor: pointer;
   padding: 0 var(--space-4); border-bottom: 1px solid var(--border); background: var(--surface-warm); }
 .sec-head h2 { margin: 0; font-family: var(--font-display); font-size: var(--text-xs); font-weight: 700; letter-spacing: 0.01em; }
 .count { font-size: 11px; color: var(--muted); }
-.count b { color: var(--accent); font-weight: 700; font-family: var(--font-mono); }
+.count b { color: var(--accent-active); font-weight: 700; font-family: var(--font-mono); }
 
 /* ── tables ───────────────────────────────────────────────────── */
 .tbl-wrap { flex: 1 1 auto; overflow: auto; min-height: 0; }
@@ -273,7 +272,7 @@ td.dim { color: var(--muted); }
 .type-tag { font-size: 10px; font-weight: 700; letter-spacing: 0.04em; color: var(--fg-2);
   background: var(--surface-warm); border: 1px solid var(--border-soft);
   border-radius: 5px; padding: 2px 6px; }
-.changed { color: var(--warn); font-weight: 700; }
+.changed { color: color-mix(in oklab, var(--warn) 64%, var(--fg)); font-weight: 700; }
 .empty {
   flex: 1 1 auto; display: grid; place-items: center; padding: var(--space-8); text-align: center;
 }
@@ -314,7 +313,7 @@ tbody tr:hover .row-del { color: var(--fg); }
 
 /* ── hex drawer ───────────────────────────────────────────────── */
 .drawer {
-  position: fixed; top: var(--tb-h); right: 0; bottom: 0; width: 428px; z-index: 40;
+  position: fixed; top: var(--tb-h); right: 0; bottom: 0; width: min(600px, 62vw); z-index: 40;
   background: var(--surface); border-left: 1px solid var(--border); box-shadow: var(--elev-raised);
   display: flex; flex-direction: column;
   transform: translateX(100%); transition: transform var(--motion-base) var(--ease-standard);
@@ -328,10 +327,10 @@ tbody tr:hover .row-del { color: var(--fg); }
 .addr-in { flex: 1 1 auto; height: 28px; font-size: 11px; }
 .hex { flex: 1 1 auto; overflow: auto; padding: var(--space-2) var(--space-3) var(--space-4);
   font-family: var(--font-mono); font-size: 11px; line-height: 1.85; }
-.hex-row { display: grid; grid-template-columns: 104px 1fr 128px; gap: var(--space-3); white-space: pre; }
+.hex-row { display: grid; grid-template-columns: 90px 1fr 110px; gap: 10px; white-space: pre; }
 .hex-row .off { color: var(--muted); }
 .hex-row .ascii { color: var(--fg-2); }
-.hex b { color: var(--warn); }
+.hex b { color: color-mix(in oklab, var(--warn) 64%, var(--fg)); }
 .drawer-foot { display: flex; align-items: center; justify-content: space-between;
   padding: 0 var(--space-3); height: 34px; border-top: 1px solid var(--border); font-size: 11px; color: var(--muted); }
 .pulse { width: 6px; height: 6px; border-radius: var(--radius-pill); background: var(--success);
@@ -400,19 +399,18 @@ tbody tr:hover .row-del { color: var(--fg); }
 .toast[data-kind="info"] .icon { color: var(--fg-2); }
 
 /* ── compact / always-on-top mode ─────────────────────────────── */
+body:has(.app.compact) { --row-h: 22px; --tb-h: 44px; }
 .app.compact { --row-h: 22px; --tb-h: 44px; }
 .app.compact .brand-name, .app.compact .brand-ver, .app.compact .shortcut-strip { display: none; }
 .app.compact .rail-scroll, .app.compact .rail-actions { padding: 10px; gap: 10px; }
 .app.compact .sec-head { height: 32px; }
 .app.compact .stack { grid-template-rows: 1fr 188px; }
 .app.compact .btn-lbl { display: none; }
-.app.compact .btn-lbl-keep { display: inline; }
 .aot-badge { display: none; align-items: center; gap: 5px; font-size: 10px; font-weight: 700;
   letter-spacing: 0.06em; text-transform: uppercase; color: var(--fg-2);
   background: var(--surface-warm); border: 1px solid var(--border); border-radius: var(--radius-pill); padding: 3px 9px; }
 .app.compact .aot-badge { display: inline-flex; }
 
-@media (max-width: 1120px) { .drawer { width: 380px; } }
 @media (prefers-reduced-motion: reduce) { * { animation-duration: 1ms !important; transition-duration: 1ms !important; } }
 </style>
 </head>
@@ -546,7 +544,7 @@ tbody tr:hover .row-del { color: var(--fg); }
           <div class="track"><div class="bar" id="progBar"></div></div>
         </div>
         <button class="btn btn-primary" id="btnFirst" disabled data-od-id="cta-first-scan">
-          首次扫描<kbd style="border-color:color-mix(in oklab, var(--accent-on) 55%, transparent);color:var(--accent-on)">F5</kbd>
+          首次扫描
         </button>
         <div class="pair">
           <button class="btn" id="btnNext" disabled data-od-id="cta-next-scan">再次扫描 <kbd>F6</kbd></button>
@@ -556,7 +554,7 @@ tbody tr:hover .row-del { color: var(--fg); }
         </div>
         <div class="shortcut-strip" data-od-id="shortcut-strip">
           <span><kbd>F5</kbd>首次</span><span><kbd>F6</kbd>再次</span><span><kbd>⌘Z</kbd>撤销</span>
-          <span><kbd>⌘S</kbd>保存表</span><span><kbd>⌘O</kbd>加载表</span>
+          <span><kbd>⌘N</kbd>进程</span><span><kbd>⌘S</kbd>保存表</span><span><kbd>⌘O</kbd>加载表</span>
         </div>
       </div>
     </aside>
@@ -612,9 +610,9 @@ tbody tr:hover .row-del { color: var(--fg); }
         <div class="tbl-wrap">
           <table>
             <thead><tr>
-              <th style="width:56px">冻结</th><th style="width:236px">描述</th>
-              <th style="width:196px">地址</th><th style="width:132px">类型</th>
-              <th style="width:140px">当前值</th><th style="width:44px"><span class="sr">操作</span></th>
+              <th style="width:52px">冻结</th><th>描述</th>
+              <th style="width:176px">地址</th><th style="width:92px">类型</th>
+              <th style="width:128px">当前值</th><th style="width:40px"><span class="sr">操作</span></th>
             </tr></thead>
             <tbody id="addrBody"></tbody>
           </table>
@@ -845,7 +843,6 @@ document.querySelectorAll('.switch').forEach(sw => sw.onclick = () => {
 
 function resetSession() {
   S.total = 0; S.page = 1; S.history = []; S.selected = null;
-  $('resultsEmpty').hidden = !!S.attached ? false : false;
   $('resultsWrap').hidden = true; $('pager').hidden = true;
   $('matchCount').textContent = '尚无匹配'; $('scanMeta').textContent = '';
   $('sessionTag').textContent = S.attached ? '就绪' : '未开始';
@@ -1050,7 +1047,7 @@ $('addrBody').addEventListener('dblclick', (e) => {
   const td = e.target.closest('td'); if (!td) return;
   const tr = td.closest('tr'), r = S.addr.find(x => x.id === tr.dataset.id);
   if (td.classList.contains('val')) inlineEdit(td, r.value, (v) => {
-    r.value = v; r.frozen = r.frozen; renderAddr(); persist();
+    r.value = v; renderAddr(); persist();
     toast('success', `已写入 ${v}`, `${r.label} · 0x${hex(r.a)}`);
   });
   if (td.classList.contains('lbl')) inlineEdit(td, r.label, (v) => {
@@ -1125,7 +1122,7 @@ function renderHex(focus) {
     const base = S.hexBase + r * 16;
     let bytes = '', ascii = '';
     for (let c = 0; c < 16; c++) {
-      const b = Math.floor(rnd(base * 0.00031 + c * 3.7 + (c < 8 ? S.hexSeed * 0 : S.hexSeed) * 0.03) * 256);
+      const b = Math.floor(rnd(base * 0.00031 + c * 3.7 + S.hexSeed * 0.03) * 256);
       const isFocus = focus !== undefined && base + c === focus;
       const h = hex(b, 2);
       bytes += (isFocus ? `<b>${h}</b>` : h) + (c === 7 ? '  ' : ' ');
@@ -1173,7 +1170,6 @@ $('btnVm').onclick = () => { toast('info', '正在打开 VM 扫描', '检测宿�
 
 /* ══════════════ shortcuts ══════════════ */
 addEventListener('keydown', (e) => {
-  const typing = /input|select|textarea/i.test(document.activeElement?.tagName || '');
   const mod = e.metaKey || e.ctrlKey;
   if (e.key === 'F5') { e.preventDefault(); runScan('first'); }
   else if (e.key === 'F6') { e.preventDefault(); runScan('next'); }
@@ -1182,10 +1178,6 @@ addEventListener('keydown', (e) => {
   else if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); saveTable(); }
   else if (mod && e.key.toLowerCase() === 'o') { e.preventDefault(); loadTable(); }
   else if (e.key === 'Enter' && $('procScrim').hidden === false && pickedPid) { attach(pickedPid); }
-  else if (!typing && e.key === 'Delete' && S.addr.length) {
-    const last = S.addr[S.addr.length - 1];
-    S.addr.pop(); renderAddr(); persist(); toast('info', '已删除条目', `${last.label} · 0x${hex(last.a)}`);
-  }
 });
 
 /* ══════════════ boot ══════════════ */
