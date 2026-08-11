@@ -34,6 +34,7 @@ pub fn run() {
             commands::scan::get_scan_results,
             commands::memory::read_at,
             commands::memory::write_at,
+            commands::memory::list_regions,
             commands::freeze::add_frozen,
             commands::freeze::remove_frozen,
             commands::freeze::toggle_frozen,
