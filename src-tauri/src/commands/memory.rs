@@ -1,5 +1,6 @@
 use parking_lot::Mutex;
 
+use mem_scanner_core::platform::MemoryRegion;
 use mem_scanner_core::scanner::ScanValue;
 use serde::Serialize;
 use tauri::State;
@@ -49,4 +50,14 @@ pub fn write_at(
     let bytes = value.to_bytes();
     process.write(address, &bytes).map_err(|e| e.to_string())?;
     Ok(())
+}
+
+#[tauri::command]
+pub fn list_regions(state: State<'_, Mutex<AppState>>) -> Result<Vec<MemoryRegion>, String> {
+    let app_state = state.lock();
+    let process = app_state
+        .process
+        .as_ref()
+        .ok_or_else(|| "No process attached".to_string())?;
+    process.regions().map_err(|e| e.to_string())
 }

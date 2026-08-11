@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { useI18n, MessageKey } from "../i18n";
 import { useToast } from "./Toast";
 
 export interface AddressEntry {
@@ -7,6 +8,13 @@ export interface AddressEntry {
   label: string;
   value: unknown;
   enabled: boolean;
+}
+
+interface FrozenEntry {
+  address: number;
+  value: Record<string, unknown>;
+  enabled: boolean;
+  label: string;
 }
 
 interface Props {
@@ -26,7 +34,7 @@ function formatValue(val: unknown): string {
   return String(val);
 }
 
-export function getValueType(val: unknown): string {
+function getValueType(val: unknown): string {
   if (val === null || val === undefined) return "I32";
   if (typeof val === "object") {
     const keys = Object.keys(val as Record<string, unknown>);
@@ -36,32 +44,57 @@ export function getValueType(val: unknown): string {
 }
 
 export function AddressTable({ externalEntries }: Props) {
-  const [entries, setEntries] = useState<AddressEntry[]>([]);
+  const { t } = useI18n();
+  const { showToast } = useToast();
+
+  const [entries, setEntries] = useState<FrozenEntry[]>([]);
   const [editingLabel, setEditingLabel] = useState<number | null>(null);
   const [labelDraft, setLabelDraft] = useState("");
-  const { showToast } = useToast();
+  const [editingValue, setEditingValue] = useState<number | null>(null);
+  const [valueDraft, setValueDraft] = useState("");
+  const localLabelsRef = useRef<Map<number, string>>(new Map());
   const failCountRef = useRef(0);
+  const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   const refreshValues = useCallback(async () => {
     try {
-      const data = await invoke<AddressEntry[]>("list_frozen");
-      setEntries(data);
-      failCountRef.current = 0;
-    } catch (e) {
+      const data = await invoke<FrozenEntry[]>("list_frozen");
+      if (mountedRef.current) {
+        setEntries(data.map((e) => ({
+          ...e,
+          label: localLabelsRef.current.get(e.address) ?? e.label,
+        })));
+        failCountRef.current = 0;
+      }
+    } catch {
       failCountRef.current++;
-      if (failCountRef.current >= 3) {
-        showToast("Lost connection to process", "error");
+    }
+  }, []);
+
+  // Poll with setTimeout to avoid overlapping
+  useEffect(() => {
+    let active = true;
+    async function poll() {
+      await refreshValues();
+      if (active) {
+        const delay = failCountRef.current >= 3 ? 5000 : 500;
+        pollRef.current = setTimeout(poll, delay);
       }
     }
-  }, [showToast]);
-
-  useEffect(() => {
-    refreshValues();
-    const interval = setInterval(refreshValues, 500);
-    return () => clearInterval(interval);
+    poll();
+    return () => {
+      active = false;
+      clearTimeout(pollRef.current!);
+    };
   }, [refreshValues]);
 
-  // Persist external entries to backend so polling doesn't overwrite them
+  // Persist external entries to backend
   useEffect(() => {
     if (!externalEntries || externalEntries.length === 0) return;
     const addToBackend = async () => {
@@ -73,37 +106,29 @@ export function AddressTable({ externalEntries }: Props) {
             label: entry.label,
           });
         } catch (e) {
-          showToast(`Failed to add: ${e}`, "error");
+          showToast(t("toast.writeFailed", { error: String(e) }), "error");
         }
       }
       refreshValues();
     };
     addToBackend();
-  }, [externalEntries, showToast, refreshValues]);
+  }, [externalEntries, showToast, refreshValues, t]);
 
   async function toggleFreeze(address: number, currentEnabled: boolean) {
     try {
       await invoke("toggle_frozen", { address, enabled: !currentEnabled });
+      refreshValues();
     } catch (e) {
-      showToast(`Failed to toggle freeze: ${e}`, "error");
+      showToast(t("toast.writeFailed", { error: String(e) }), "error");
     }
   }
 
-  async function handleEditValue(address: number, currentValue: unknown) {
-    const display = formatValue(currentValue);
-    const newValue = prompt("Enter new value:", display);
-    if (newValue === null || newValue.trim() === "") return;
+  async function handleDelete(address: number) {
     try {
-      const vtype = getValueType(currentValue);
-      const parsed = vtype.startsWith("F") ? parseFloat(newValue) : parseInt(newValue, 10);
-      if (isNaN(parsed)) {
-        showToast("Invalid number", "error");
-        return;
-      }
-      const value = { [vtype]: parsed };
-      await invoke("write_at", { address, value });
+      await invoke("remove_frozen", { address });
+      refreshValues();
     } catch (e) {
-      showToast(`Write failed: ${e}`, "error");
+      showToast(t("toast.writeFailed", { error: String(e) }), "error");
     }
   }
 
@@ -114,6 +139,7 @@ export function AddressTable({ externalEntries }: Props) {
 
   function commitLabel() {
     if (editingLabel !== null) {
+      localLabelsRef.current.set(editingLabel, labelDraft);
       setEntries((prev) =>
         prev.map((e) =>
           e.address === editingLabel ? { ...e, label: labelDraft } : e
@@ -123,65 +149,128 @@ export function AddressTable({ externalEntries }: Props) {
     setEditingLabel(null);
   }
 
+  function startEditValue(address: number, currentValue: unknown) {
+    setEditingValue(address);
+    setValueDraft(formatValue(currentValue));
+  }
+
+  async function commitValue(address: number, currentValue: unknown) {
+    setEditingValue(null);
+    const vtype = getValueType(currentValue);
+    const parsed = vtype.startsWith("F") ? parseFloat(valueDraft) : parseInt(valueDraft, 10);
+    if (isNaN(parsed)) {
+      showToast(t("toast.invalidNumber"), "error");
+      return;
+    }
+    try {
+      const value = { [vtype]: parsed };
+      await invoke("write_at", { address, value });
+      refreshValues();
+    } catch (e) {
+      showToast(t("toast.writeFailed", { error: String(e) }), "error");
+    }
+  }
+
   return (
-    <div>
-      <table>
-        <thead>
-          <tr>
-            <th style={{ width: 30 }}>❄️</th>
-            <th>Description</th>
-            <th>Address</th>
-            <th>Type</th>
-            <th>Value</th>
-          </tr>
-        </thead>
-        <tbody>
-          {entries.map((entry) => (
-            <tr key={entry.address}>
-              <td>
-                <input
-                  type="checkbox"
-                  checked={entry.enabled}
-                  onChange={() => toggleFreeze(entry.address, entry.enabled)}
-                />
-              </td>
-              <td onDoubleClick={() => startEditLabel(entry.address, entry.label)}>
-                {editingLabel === entry.address ? (
-                  <input
-                    type="text"
-                    value={labelDraft}
-                    onChange={(e) => setLabelDraft(e.target.value)}
-                    onBlur={commitLabel}
-                    onKeyDown={(e) => e.key === "Enter" && commitLabel()}
-                    autoFocus
-                    style={{ width: "100%" }}
-                  />
-                ) : (
-                  entry.label || "(double-click to name)"
-                )}
-              </td>
-              <td style={{ fontFamily: "monospace" }}>{formatAddress(entry.address)}</td>
-              <td>{getValueType(entry.value)}</td>
-              <td
-                style={{ fontFamily: "monospace", cursor: "pointer" }}
-                onDoubleClick={() => handleEditValue(entry.address, entry.value)}
-              >
-                {formatValue(entry.value)}
-              </td>
-            </tr>
-          ))}
-          {entries.length === 0 && (
+    <section className="sec">
+      <div className="sec-head">
+        <h2>{t("addr.title")}</h2>
+        <span className="count">{t("addr.count", { count: entries.length })}</span>
+        <span className="spacer" />
+        <span className="count">
+          <span className="pulse" />
+          {t("addr.refreshHint")}
+        </span>
+      </div>
+
+      <div className="tbl-wrap">
+        <table>
+          <thead>
             <tr>
-              <td
-                colSpan={5}
-                style={{ textAlign: "center", color: "var(--text-secondary)", padding: 12 }}
-              >
-                Address table is empty. Add addresses from scan results.
-              </td>
+              <th style={{ width: 52 }}>{t("addr.colFreeze")}</th>
+              <th>{t("addr.colDesc")}</th>
+              <th style={{ width: 176 }}>{t("addr.colAddr")}</th>
+              <th style={{ width: 92 }}>{t("addr.colType")}</th>
+              <th style={{ width: 128 }}>{t("addr.colValue")}</th>
+              <th style={{ width: 40 }}>
+                <span className="sr">{t("addr.colAction" as MessageKey)}</span>
+              </th>
             </tr>
-          )}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {entries.map((entry) => (
+              <tr key={entry.address} className={entry.enabled ? "frozen" : ""}>
+                <td>
+                  <input
+                    type="checkbox"
+                    className="cb"
+                    checked={entry.enabled}
+                    onChange={() => toggleFreeze(entry.address, entry.enabled)}
+                  />
+                </td>
+                <td onDoubleClick={() => startEditLabel(entry.address, entry.label)}>
+                  {editingLabel === entry.address ? (
+                    <input
+                      className="edit-in"
+                      value={labelDraft}
+                      onChange={(e) => setLabelDraft(e.target.value)}
+                      onBlur={commitLabel}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") commitLabel();
+                        if (e.key === "Escape") setEditingLabel(null);
+                      }}
+                      autoFocus
+                    />
+                  ) : (
+                    entry.label || "—"
+                  )}
+                </td>
+                <td className="mono">{formatAddress(entry.address)}</td>
+                <td>
+                  <span className="type-tag">{getValueType(entry.value)}</span>
+                </td>
+                <td onDoubleClick={() => startEditValue(entry.address, entry.value)}>
+                  {editingValue === entry.address ? (
+                    <input
+                      className="edit-in mono"
+                      value={valueDraft}
+                      onChange={(e) => setValueDraft(e.target.value)}
+                      onBlur={() => commitValue(entry.address, entry.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") e.currentTarget.blur();
+                        if (e.key === "Escape") setEditingValue(null);
+                      }}
+                      autoFocus
+                    />
+                  ) : (
+                    <span className="mono">{formatValue(entry.value)}</span>
+                  )}
+                </td>
+                <td>
+                  <button
+                    className="row-del"
+                    onClick={() => handleDelete(entry.address)}
+                    title={t("addr.deleteTitle" as MessageKey)}
+                  >
+                    <svg className="icon" style={{ width: 14, height: 14 }} viewBox="0 0 24 24" aria-hidden="true">
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        {entries.length === 0 && (
+          <div className="empty" style={{ minHeight: 120 }}>
+            <div className="empty-inner">
+              <p>{t("addr.emptyHint")}</p>
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
   );
 }

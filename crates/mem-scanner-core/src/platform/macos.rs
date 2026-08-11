@@ -10,6 +10,7 @@ use std::ptr;
 extern "C" {
     fn proc_listallpids(buffer: *mut libc::c_void, buffersize: i32) -> i32;
     fn proc_name(pid: i32, buffer: *mut libc::c_void, buffersize: u32) -> i32;
+    fn proc_regionfilename(pid: i32, address: u64, buffer: *mut libc::c_void, buffersize: u32) -> i32;
 }
 
 // mach_vm_* functions are not fully wrapped by mach2; declare them via extern.
@@ -213,13 +214,30 @@ impl ProcessMemory for MacOsProcess {
             let writable = (info.protection & VM_PROT_WRITE) != 0;
             let executable = (info.protection & VM_PROT_EXECUTE) != 0;
 
+            // Resolve mapped file name
+            let mut path_buf = [0u8; 1024];
+            let path_len = unsafe {
+                proc_regionfilename(
+                    self.pid as i32,
+                    address,
+                    path_buf.as_mut_ptr() as *mut libc::c_void,
+                    path_buf.len() as u32,
+                )
+            };
+            let region_info = if path_len > 0 {
+                let len = (path_len as usize).min(path_buf.len());
+                String::from_utf8_lossy(&path_buf[..len]).into_owned()
+            } else {
+                String::new()
+            };
+
             regions.push(MemoryRegion {
                 base: address as usize,
                 size: size as usize,
                 readable,
                 writable,
                 executable,
-                info: String::new(),
+                info: region_info,
             });
 
             address += size;
