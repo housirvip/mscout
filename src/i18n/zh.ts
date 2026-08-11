@@ -138,4 +138,18 @@ export default {
   "vm.scanningDesc": "定位 KPCR 与 EPROCESS 链表",
   "vm.vmCount": "已检测到 {count} 台虚拟机",
   "vm.colName": "进程名",
+  // region viewer
+  "region.title": "内存区域",
+  "region.noProcess": "请先附加到一个进程",
+  "region.colBase": "基址",
+  "region.colSize": "大小",
+  "region.colProt": "权限",
+  "region.colInfo": "映射",
+  "region.total": "{count} 个区域",
+  "region.viewHex": "查看内存",
+  "region.filterWritable": "仅可写",
+  "region.refresh": "刷新",
+  "region.loading": "加载中…",
+  "region.noRegions": "返回了 0 个区域 — 尝试以 sudo 权限运行",
+  "region.sudoHint": "macOS: 需要 sudo 权限才能读取其他进程的内存区域",
 } as const;

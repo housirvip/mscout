@@ -138,4 +138,18 @@ export default {
   "vm.scanningDesc": "Locating KPCR and EPROCESS linked list",
   "vm.vmCount": "{count} VMs detected",
   "vm.colName": "Process Name",
+  // region viewer
+  "region.title": "Memory Regions",
+  "region.noProcess": "Attach to a process first",
+  "region.colBase": "Base Address",
+  "region.colSize": "Size",
+  "region.colProt": "Prot",
+  "region.colInfo": "Mapped",
+  "region.total": "{count} regions",
+  "region.viewHex": "View Memory",
+  "region.filterWritable": "Writable only",
+  "region.refresh": "Refresh",
+  "region.loading": "Loading…",
+  "region.noRegions": "0 regions returned — try running with sudo",
+  "region.sudoHint": "macOS: sudo is required to read memory regions of other processes",
 } as const;

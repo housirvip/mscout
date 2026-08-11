@@ -11,6 +11,7 @@ import { MemoryViewer } from "./components/MemoryViewer";
 import { ProcessList } from "./components/ProcessList";
 import { PointerScanDialog } from "./components/PointerScanDialog";
 import { VmDialog } from "./components/VmDialog";
+import { RegionViewer } from "./components/RegionViewer";
 
 interface FrozenEntry {
   address: number;
@@ -57,6 +58,7 @@ function AppContent() {
   const [hasSession, setHasSession] = useState(false);
   const [addedEntries, setAddedEntries] = useState<AddressEntry[]>([]);
   const [alwaysOnTop, setAlwaysOnTop] = useState(false);
+  const [showRegionViewer, setShowRegionViewer] = useState(false);
 
   const attached = attachedPid !== null;
 
@@ -247,6 +249,14 @@ function AppContent() {
           </svg>
           <span className="btn-lbl">{t("toolbar.vmScan")}</span>
         </button>
+        <button className="btn" onClick={() => setShowRegionViewer(true)} disabled={!attached}>
+          <svg className="icon" aria-hidden="true" viewBox="0 0 24 24">
+            <rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" strokeWidth="1.5" />
+            <line x1="3" y1="9" x2="21" y2="9" stroke="currentColor" strokeWidth="1.5" />
+            <line x1="3" y1="15" x2="21" y2="15" stroke="currentColor" strokeWidth="1.5" />
+          </svg>
+          <span className="btn-lbl">{t("region.title")}</span>
+        </button>
 
         <span className="spacer" />
 
@@ -328,13 +338,31 @@ function AppContent() {
         />
       )}
 
+      {/* ── region viewer drawer ── */}
+      {attached && (
+        <RegionViewer
+          open={showRegionViewer}
+          onClose={() => setShowRegionViewer(false)}
+          onViewMemory={(addr) => {
+            setMemViewAddr(addr);
+            setShowHexDrawer(true);
+            setShowRegionViewer(false);
+          }}
+        />
+      )}
+
       {/* ── modals ── */}
       {showProcessList && (
         <ProcessList
-          onAttach={(pid, name) => {
-            setAttachedPid(pid);
-            setProcessName(name);
-            setShowProcessList(false);
+          onAttach={async (pid, name) => {
+            try {
+              await invoke("attach_process", { pid });
+              setAttachedPid(pid);
+              setProcessName(name);
+              setShowProcessList(false);
+            } catch (e) {
+              showToast(`Attach failed: ${e}`, "error");
+            }
           }}
           onClose={() => setShowProcessList(false)}
         />

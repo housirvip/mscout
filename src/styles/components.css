@@ -205,3 +205,12 @@ body:has(.app.compact) { --row-h: 22px; --tb-h: 44px; }
   letter-spacing: 0.06em; text-transform: uppercase; color: var(--fg-2);
   background: var(--surface-warm); border: 1px solid var(--border); border-radius: var(--radius-pill); padding: 3px 9px; }
 .app.compact .aot-badge { display: inline-flex; }
+
+/* ── region viewer ─────────────────────────────────────────────── */
+.memory-bar { display: flex; height: 24px; border-radius: 4px; overflow: hidden; margin: 8px 12px; background: var(--surface-warm); gap: 1px; }
+.memory-bar span { min-width: 2px; transition: opacity var(--motion-base); }
+.memory-bar span:hover { opacity: 0.7; }
+.prot-badge { display: inline-block; padding: 1px 5px; border-radius: 3px; font-size: 10px; font-weight: 700; font-family: var(--font-mono); letter-spacing: 0.04em; }
+.prot-rw { background: color-mix(in oklab, var(--success) 16%, transparent); color: var(--success); }
+.prot-rx { background: color-mix(in oklab, var(--accent) 16%, transparent); color: var(--accent); }
+.prot-ro { background: var(--surface-warm); color: var(--muted); }
