@@ -4,7 +4,6 @@ use serde::{Deserialize, Serialize};
 pub struct ScanResultSet {
     pub(crate) addresses: Vec<usize>,
     pub(crate) previous_values: Vec<u8>,
-    pub(crate) value_type: ValueType,
     pub(crate) history: Vec<(Vec<usize>, Vec<u8>)>,
     pub(crate) max_history: usize,
 }
@@ -17,11 +16,10 @@ pub struct ScanResult {
 }
 
 impl ScanResultSet {
-    pub fn new(value_type: ValueType) -> Self {
+    pub fn new(_value_type: ValueType) -> Self {
         Self {
             addresses: Vec::new(),
             previous_values: Vec::new(),
-            value_type,
             history: Vec::new(),
             max_history: 10,
         }
