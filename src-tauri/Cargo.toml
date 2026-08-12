@@ -3,6 +3,10 @@ name = "mscout"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "mscout-gui"
+path = "src/main.rs"
+
 [dependencies]
 tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"

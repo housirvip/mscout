@@ -1,0 +1,3 @@
+[workspace]
+members = ["crates/mscout-core", "crates/mscout-cli", "src-tauri"]
+resolver = "2"
