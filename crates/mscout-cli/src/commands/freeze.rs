@@ -28,12 +28,7 @@ pub fn freeze_repl(
     let value = parse_scan_value(value_str, value_type)?;
     let label_str = label.unwrap_or("").to_string();
 
-    // Create FreezeManager if needed
-    if state.freeze_manager.is_none() {
-        state.freeze_manager = Some(FreezeManager::start(process));
-    }
-
-    let fm = state.freeze_manager.as_ref().unwrap();
+    let fm = state.freeze_manager.get_or_insert_with(|| FreezeManager::start(process));
     fm.add(address, value, label_str.clone());
 
     if out.json {

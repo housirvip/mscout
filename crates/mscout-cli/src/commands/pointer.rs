@@ -41,7 +41,8 @@ pub fn pointer_resolve(
     let base = parse_address(base_str)?;
     let offsets: Vec<isize> = offset_strs.iter()
         .map(|s| {
-            let s = s.trim().strip_prefix("0x").or_else(|| s.strip_prefix("0X")).unwrap_or(s);
+            let s = s.trim();
+            let s = s.strip_prefix("0x").or_else(|| s.strip_prefix("0X")).unwrap_or(s);
             isize::from_str_radix(s, 16).map_err(|e| anyhow::anyhow!("Invalid offset '{s}': {e}"))
         })
         .collect::<Result<Vec<_>>>()?;
@@ -56,7 +57,7 @@ pub fn pointer_resolve(
     if out.json {
         out.success("pointer-resolve", json!({
             "base": format!("0x{:X}", base),
-            "offsets": chain.offsets.iter().map(|o| format!("0x{:X}", o)).collect::<Vec<_>>(),
+            "offsets": chain.offsets.iter().map(|o| format_offset(*o)).collect::<Vec<_>>(),
             "resolved": resolved.map(|a| format!("0x{:X}", a)),
         }));
     } else {
@@ -100,7 +101,8 @@ pub fn pointer_resolve_repl(
     let base = parse_address(base_str)?;
     let offsets: Vec<isize> = offset_strs.iter()
         .map(|s| {
-            let s = s.trim().strip_prefix("0x").or_else(|| s.strip_prefix("0X")).unwrap_or(s);
+            let s = s.trim();
+            let s = s.strip_prefix("0x").or_else(|| s.strip_prefix("0X")).unwrap_or(s);
             isize::from_str_radix(s, 16).map_err(|e| anyhow::anyhow!("Invalid offset '{s}': {e}"))
         })
         .collect::<Result<Vec<_>>>()?;
@@ -111,7 +113,7 @@ pub fn pointer_resolve_repl(
     if out.json {
         out.success("pointer-resolve", json!({
             "base": format!("0x{:X}", base),
-            "offsets": chain.offsets.iter().map(|o| format!("0x{:X}", o)).collect::<Vec<_>>(),
+            "offsets": chain.offsets.iter().map(|o| format_offset(*o)).collect::<Vec<_>>(),
             "resolved": resolved.map(|a| format!("0x{:X}", a)),
         }));
     } else {
@@ -137,7 +139,7 @@ fn output_chains(
             json!({
                 "base": format!("0x{:X}", c.base_address),
                 "module": c.module,
-                "offsets": c.offsets.iter().map(|o| format!("0x{:X}", o)).collect::<Vec<_>>(),
+                "offsets": c.offsets.iter().map(|o| format_offset(*o)).collect::<Vec<_>>(),
                 "resolved": resolved.map(|a| format!("0x{:X}", a)),
             })
         }).collect();
@@ -149,11 +151,19 @@ fn output_chains(
             vec![
                 format!("0x{:X}", c.base_address),
                 c.module.clone().unwrap_or_default(),
-                c.offsets.iter().map(|o| format!("0x{:X}", o)).collect::<Vec<_>>().join(" → "),
+                c.offsets.iter().map(|o| format_offset(*o)).collect::<Vec<_>>().join(" → "),
                 resolved.map(|a| format!("0x{:X}", a)).unwrap_or_else(|| "—".into()),
             ]
         }).collect();
         out.print_table(&["Base", "Module", "Offsets", "Resolved"], rows);
     }
     Ok(())
+}
+
+fn format_offset(o: isize) -> String {
+    if o < 0 {
+        format!("-0x{:X}", o.unsigned_abs())
+    } else {
+        format!("0x{:X}", o)
+    }
 }

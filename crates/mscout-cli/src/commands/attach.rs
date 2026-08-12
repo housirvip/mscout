@@ -50,11 +50,20 @@ pub fn attach(pid: u32, session_path: Option<&Path>, out: &Output) -> Result<()>
 pub fn detach(session_path: Option<&Path>, out: &Output) -> Result<()> {
     let (session, path) = session::load_session(session_path)?;
 
-    // Kill freeze daemons
+    // Kill freeze daemons (best-effort cleanup)
     for daemon_pid in &session.frozen_pids {
         #[cfg(unix)]
-        unsafe {
-            libc::kill(*daemon_pid as i32, libc::SIGTERM);
+        {
+            match i32::try_from(*daemon_pid) {
+                Ok(pid) => {
+                    // SAFETY: sending SIGTERM to a PID we own from a prior freeze command.
+                    let ret = unsafe { libc::kill(pid, libc::SIGTERM) };
+                    if ret != 0 {
+                        // Process may have already exited — ignore.
+                    }
+                }
+                Err(_) => {} // PID exceeds i32::MAX — skip
+            }
         }
     }
 

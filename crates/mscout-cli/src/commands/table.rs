@@ -113,7 +113,6 @@ pub fn add_entry(
         freeze_value: None,
     };
     table.entries.push(entry);
-    let _ = table;
     session::save_session(&session_file, Some(&spath))?;
 
     if out.json {
@@ -141,12 +140,16 @@ pub fn remove_entry(
         table.entries.remove(idx);
     } else if let Some(addr_str) = address {
         let addr = parse_address(addr_str)?;
+        let before = table.entries.len();
         table.entries.retain(|e| {
             match &e.address {
                 AddressSpec::Static(a) => *a != addr,
                 _ => true,
             }
         });
+        if table.entries.len() == before {
+            anyhow::bail!("No entry found with address 0x{:X}", addr);
+        }
     } else {
         anyhow::bail!("Provide --address or --index");
     }

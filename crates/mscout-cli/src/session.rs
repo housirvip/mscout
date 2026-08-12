@@ -1,4 +1,4 @@
-use std::fs;
+use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
@@ -34,10 +34,20 @@ pub struct ScanState {
     pub regions: Vec<MemoryRegion>,
 }
 
-/// Get the session directory.
+/// Get the session directory (user-private on Unix).
 fn session_dir() -> PathBuf {
     let tmp = std::env::temp_dir();
-    tmp.join("mscout")
+    #[cfg(unix)]
+    {
+        // Use uid-specific directory to prevent other users from accessing session data
+        let uid = unsafe { libc::getuid() };
+        tmp.join(format!("mscout-{}", uid))
+    }
+    #[cfg(not(unix))]
+    {
+        // Windows temp dirs are already per-user
+        tmp.join("mscout")
+    }
 }
 
 /// Get the canonical session file path for a PID.
@@ -77,6 +87,12 @@ pub fn load_session(path: Option<&Path>) -> Result<(SessionFile, PathBuf)> {
         .with_context(|| format!("Failed to read session file: {}", path.display()))?;
     let session: SessionFile = bincode::deserialize(&data)
         .with_context(|| "Failed to deserialize session file (corrupt?)")?;
+    if session.version != 1 {
+        anyhow::bail!(
+            "Incompatible session version {} (expected 1). Delete session and re-attach.",
+            session.version
+        );
+    }
     Ok((session, path))
 }
 
@@ -87,14 +103,28 @@ pub fn save_session(session: &SessionFile, path: Option<&Path>) -> Result<PathBu
         None => session_path_for_pid(session.pid),
     };
 
-    // Ensure directory exists
+    // Ensure directory exists with restricted permissions
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = fs::set_permissions(parent, fs::Permissions::from_mode(0o700));
+        }
     }
 
-    let tmp_path = path.with_extension("bin.tmp");
+    // Use per-process tmp name + create_new to prevent symlink attacks
+    let tmp_path = path.with_extension(format!("bin.{}.tmp", std::process::id()));
     let data = bincode::serialize(session)?;
-    let mut file = fs::File::create(&tmp_path)?;
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&tmp_path)
+        .or_else(|_| {
+            // If file exists (stale from prior crash), remove and retry
+            let _ = fs::remove_file(&tmp_path);
+            OpenOptions::new().write(true).create_new(true).open(&tmp_path)
+        })?;
     file.write_all(&data)?;
     file.sync_all()?;
     drop(file);

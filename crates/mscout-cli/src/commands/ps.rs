@@ -1,5 +1,5 @@
 use anyhow::Result;
-use mscout_core::platform::{NativeProcess, ProcessMemory};
+use mscout_core::platform::{NativeProcess, ProcessMemory as _};
 use serde_json::json;
 
 use crate::output::Output;

@@ -41,7 +41,7 @@ pub fn list_regions(
             );
             json!({
                 "start": format!("0x{:X}", r.base),
-                "end": format!("0x{:X}", r.base + r.size),
+                "end": format!("0x{:X}", r.base.saturating_add(r.size)),
                 "size": r.size,
                 "perm": perm_str,
                 "module": r.info,
@@ -57,7 +57,7 @@ pub fn list_regions(
             );
             vec![
                 format!("0x{:X}", r.base),
-                format!("0x{:X}", r.base + r.size),
+                format!("0x{:X}", r.base.saturating_add(r.size)),
                 format!("{}", r.size),
                 perm_str,
                 r.info.clone(),
@@ -100,7 +100,7 @@ pub fn list_regions_repl(
             );
             json!({
                 "start": format!("0x{:X}", r.base),
-                "end": format!("0x{:X}", r.base + r.size),
+                "end": format!("0x{:X}", r.base.saturating_add(r.size)),
                 "size": r.size,
                 "perm": perm_str,
                 "module": r.info,
@@ -116,7 +116,7 @@ pub fn list_regions_repl(
             );
             vec![
                 format!("0x{:X}", r.base),
-                format!("0x{:X}", r.base + r.size),
+                format!("0x{:X}", r.base.saturating_add(r.size)),
                 format!("{}", r.size),
                 perm_str,
                 r.info.clone(),

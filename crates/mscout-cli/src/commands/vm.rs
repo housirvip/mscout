@@ -10,7 +10,8 @@ use crate::session::{self, SessionFile};
 use crate::state::CliState;
 
 pub fn list_vms(out: &Output) -> Result<()> {
-    let vms = VmwareConnector::detect_vms()
+    #[allow(unused_mut)]
+    let mut vms = VmwareConnector::detect_vms()
         .map_err(|e| anyhow::anyhow!("{e}"))?;
 
     #[cfg(target_os = "windows")]
@@ -76,7 +77,6 @@ pub fn attach_vm_process(
         .find(|p| p.pid == guest_pid)
         .ok_or_else(|| anyhow::anyhow!("Guest process {} not found", guest_pid))?;
 
-    let _vm_process = VmwareProcess::new(connector, target);
     let name = target.name.clone();
 
     // Save session

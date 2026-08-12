@@ -27,9 +27,13 @@ pub fn read_memory(
 
     let mut results = Vec::new();
     for i in 0..count {
-        let addr = address + i * type_size;
+        let addr = address.checked_add(i * type_size)
+            .ok_or_else(|| anyhow::anyhow!("Address overflow at index {}", i))?;
         let mut buf = vec![0u8; type_size];
-        process.read(addr, &mut buf).map_err(|e| anyhow::anyhow!("{e}"))?;
+        let bytes_read = process.read(addr, &mut buf).map_err(|e| anyhow::anyhow!("{e}"))?;
+        if bytes_read < type_size {
+            anyhow::bail!("Partial read at 0x{:X}: got {} of {} bytes", addr, bytes_read, type_size);
+        }
         let value = format_typed_value(&buf, value_type);
         results.push(json!({"address": format!("0x{:X}", addr), "value": value}));
     }
@@ -84,6 +88,10 @@ pub fn hex_dump(
     let process = NativeProcess::attach(session_file.pid)
         .map_err(|e| anyhow::anyhow!("{e}"))?;
 
+    const MAX_HEX_LEN: usize = 16 * 1024 * 1024;
+    if len > MAX_HEX_LEN {
+        anyhow::bail!("Hex dump length {} exceeds maximum (16MB)", len);
+    }
     let mut buf = vec![0u8; len];
     let bytes_read = process.read(address, &mut buf).map_err(|e| anyhow::anyhow!("{e}"))?;
     buf.truncate(bytes_read);
@@ -118,9 +126,13 @@ pub fn read_memory_repl(
 
     let mut results = Vec::new();
     for i in 0..count {
-        let addr = address + i * type_size;
+        let addr = address.checked_add(i * type_size)
+            .ok_or_else(|| anyhow::anyhow!("Address overflow at index {}", i))?;
         let mut buf = vec![0u8; type_size];
-        process.read(addr, &mut buf).map_err(|e| anyhow::anyhow!("{e}"))?;
+        let bytes_read = process.read(addr, &mut buf).map_err(|e| anyhow::anyhow!("{e}"))?;
+        if bytes_read < type_size {
+            anyhow::bail!("Partial read at 0x{:X}: got {} of {} bytes", addr, bytes_read, type_size);
+        }
         let value = format_typed_value(&buf, value_type);
         results.push(json!({"address": format!("0x{:X}", addr), "value": value}));
     }
@@ -169,6 +181,10 @@ pub fn hex_dump_repl(
         .ok_or_else(|| anyhow::anyhow!("Not attached."))?;
     let address = parse_address(addr_str)?;
 
+    const MAX_HEX_LEN: usize = 16 * 1024 * 1024;
+    if len > MAX_HEX_LEN {
+        anyhow::bail!("Hex dump length {} exceeds maximum (16MB)", len);
+    }
     let mut buf = vec![0u8; len];
     let bytes_read = process.read(address, &mut buf).map_err(|e| anyhow::anyhow!("{e}"))?;
     buf.truncate(bytes_read);

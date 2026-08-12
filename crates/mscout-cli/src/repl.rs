@@ -122,8 +122,8 @@ fn execute_repl_command(state: &mut CliState, tokens: &[String], out: &Output) -
         }
         "next" => {
             let value = args.first()
-                .filter(|s| !s.starts_with("--") && !s.starts_with('-'))
-                .map(|s| s.clone());
+                .filter(|s| !s.starts_with("--") && !(s.starts_with('-') && s.as_bytes().get(1).map_or(false, |b| b.is_ascii_alphabetic())))
+                .cloned();
             let cond = find_flag_value(args, "--cond")
                 .or_else(|| find_flag_value(args, "-c"))
                 .unwrap_or_else(|| "eq".to_string());
@@ -212,7 +212,7 @@ fn execute_repl_command(state: &mut CliState, tokens: &[String], out: &Output) -
                 .ok_or_else(|| anyhow::anyhow!("Usage: pointer-resolve <base> --offsets 0x10,0x20"))?
                 .clone();
             let offsets_str = find_flag_value(args, "--offsets")
-                .unwrap_or_default();
+                .ok_or_else(|| anyhow::anyhow!("Usage: pointer-resolve <base> --offsets 0x10,0x20"))?;
             let offsets: Vec<String> = offsets_str.split(',')
                 .map(|s| s.trim().to_string())
                 .filter(|s| !s.is_empty())
