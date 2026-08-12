@@ -1,0 +1,22 @@
+[package]
+name = "mscout-cli"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "mscout"
+path = "src/main.rs"
+
+[dependencies]
+mscout-core = { path = "../mscout-core" }
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+bincode = "1"
+anyhow = "1"
+comfy-table = "7"
+rustyline = "14"
+shell-words = "1"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
