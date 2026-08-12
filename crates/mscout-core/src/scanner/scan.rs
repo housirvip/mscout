@@ -294,6 +294,40 @@ impl ScanSession {
     pub fn result_count(&self) -> usize {
         self.results.len()
     }
+
+    /// Decompose into serializable parts for CLI session persistence.
+    pub fn into_parts(self) -> (ValueType, usize, Vec<usize>, Vec<u8>, Vec<(Vec<usize>, Vec<u8>)>, Vec<MemoryRegion>) {
+        (
+            self.value_type,
+            self.alignment,
+            self.results.addresses,
+            self.results.previous_values,
+            self.results.history,
+            self.regions,
+        )
+    }
+
+    /// Reconstruct from serialized parts.
+    pub fn from_parts(
+        value_type: ValueType,
+        alignment: usize,
+        addresses: Vec<usize>,
+        previous_values: Vec<u8>,
+        history: Vec<(Vec<usize>, Vec<u8>)>,
+        regions: Vec<MemoryRegion>,
+    ) -> Self {
+        Self {
+            value_type,
+            alignment,
+            results: ScanResultSet {
+                addresses,
+                previous_values,
+                history,
+                max_history: 10,
+            },
+            regions,
+        }
+    }
 }
 
 /// Format raw bytes as a human-readable string according to ValueType.

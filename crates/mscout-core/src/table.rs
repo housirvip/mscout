@@ -1,14 +1,14 @@
 use crate::scanner::{ScanValue, ValueType};
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CheatTable {
     pub version: u32,
     pub process_name: String,
     pub entries: Vec<TableEntry>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TableEntry {
     pub label: String,
     pub address: AddressSpec,
@@ -17,7 +17,7 @@ pub struct TableEntry {
     pub freeze_value: Option<ScanValue>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum AddressSpec {
     Static(usize),
     Pointer {
